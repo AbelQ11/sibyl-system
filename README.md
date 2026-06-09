@@ -1,4 +1,4 @@
-# 👁️ SIBYL SYSTEM — Biometric Diagnostic Terminal
+# SIBYL SYSTEM — Biometric Diagnostic Terminal
 
 An interactive Cyberpunk-themed CLI dashboard and Biometric HUD simulation mirroring the **SIBYL System** from the *Psycho-Pass* universe. The application captures simulated camera bio-signals, evaluates Crime Coefficients (CC), analyzes emotional states via Empathy AI text diagnostics, logs longitudinal psychological health history, and offers a therapeutic calming intervention protocol.
 
