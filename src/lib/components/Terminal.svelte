@@ -6,8 +6,9 @@
 
     let input = '';
     let output = [$dictionary[$locale].INIT];
-    let terminalState: 'COMMAND' | 'AWAITING_TEXT' | 'AWAITING_CHOICE' = 'COMMAND';
+    let terminalState: 'COMMAND' | 'AWAITING_TEXT' | 'AWAITING_SCAN' | 'AWAITING_CHOICE' = 'COMMAND';
     let terminalWindow: HTMLElement;
+    let isBreathingAllowed = false;
 
     $: if ($terminalAutoTrigger) {
         const trigger = $terminalAutoTrigger;
@@ -23,57 +24,26 @@
 
         const cmdText = typeof eventOrCommand === 'string' ? eventOrCommand : input;
         const cmd = cmdText.trim();
-
         if (!cmd) return;
 
         const upperCmd = cmd.toUpperCase();
-        let shouldEject = false;
 
-        if (upperCmd === 'EXIT') {
-            appMode.set('INITIAL');
-            input = '';
-            shouldEject = true;
-        }
-        else if (upperCmd === 'TREND') {
-            if (!$currentUser) {
-                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
-            } else {
-                appMode.set('TREND_VIEW');
-            }
-            input = '';
-            shouldEject = true;
-        }
-        else if (upperCmd === 'HELP') {
-            output = [...output, `> ${cmd}`, $dictionary[$locale].HELP];
-            input = '';
-            shouldEject = true;
-        }
-        else if (upperCmd === 'CLEAR') {
-            output = [];
-            input = '';
-            shouldEject = true;
-        }
-        else if (upperCmd === 'SCAN' || upperCmd === 'EVALUATE') {
-            if (!$currentUser) {
-                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
-            } else {
-                output = [...output, `> ${cmd}`, $dictionary[$locale].EVAL_PROMPT];
-                terminalState = 'AWAITING_TEXT';
-            }
-            input = '';
-            shouldEject = true;
-        }
-
-        if (shouldEject) {
-            await updateScroll();
-            return;
+        if (typeof window !== 'undefined' && (window as any).umami) {
+            (window as any).umami.track('terminal-command', { command: upperCmd });
         }
 
         if (terminalState === 'AWAITING_CHOICE') {
-            if (upperCmd === 'B') {
+            const chosenBreathing = upperCmd === 'B' || upperCmd === 'R';
+            if (chosenBreathing && isBreathingAllowed) {
                 appMode.set('BREATHING');
             } else {
-                output = [...output, `> ${cmd}`, "THERAPY DECLINED. RESUMING NORMAL OPERATION."];
+                if (chosenBreathing && !isBreathingAllowed) {
+                    output = [...output, `> ${cmd}`, "BREATHING PROTOCOL DENIED: COEFFICIENT WITHIN ACCEPTABLE RANGE."];
+                } else if (upperCmd === 'P') {
+                    output = [...output, `> ${cmd}`, "PSYCHOLOGY MODE ACTIVATED."];
+                } else {
+                    output = [...output, `> ${cmd}`, "SELECTION DECLINED. PSYCHOLOGY MODE ACTIVATED."];
+                }
             }
             terminalState = 'COMMAND';
             input = '';
@@ -82,7 +52,7 @@
         }
 
         if (terminalState === 'AWAITING_TEXT') {
-            output = [...output, `> ${cmd}`, $dictionary[$locale].PROC];
+            output = [...output, `> ${cmd}`, "PROCESSING AGGREGATE READOUTS..."];
             input = '';
             await updateScroll();
 
@@ -90,24 +60,151 @@
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: cmd })
+                    body: JSON.stringify({ text: cmd, userId: null })
                 });
-
-                if (!res.ok) throw new Error("API Failure");
-
                 const data = await res.json();
-                output = [...output, data.result || "ANALYSIS COMPLETE.", $dictionary[$locale].EVAL_CHOICE];
+                
+                if (typeof window !== 'undefined' && (window as any).umami) {
+                    (window as any).umami.track('terminal-scan', { cc: data.cc });
+                }
+
+                const resultBlock = `CRIME COEFFICIENT: ${data.cc}\nANALYSIS: ${data.analysis}`;
+                isBreathingAllowed = data.cc > 100;
+
+                const choiceText = isBreathingAllowed ? $dictionary[$locale].EVAL_CHOICE : $dictionary[$locale].EVAL_CHOICE_NO_BREATHING;
+                output = [...output, resultBlock, choiceText];
                 terminalState = 'AWAITING_CHOICE';
             } catch (err) {
-                output = [...output, $dictionary[$locale].EVAL_ERR];
+                output = [...output, "SYSTEM CORRUPTION. DIAGNOSTIC ABORTED."];
                 terminalState = 'COMMAND';
             }
             await updateScroll();
             return;
         }
 
-        output = [...output, `> ${cmd}`, "COMMAND NOT RECOGNIZED. TYPE 'HELP'."];
+        if (terminalState === 'AWAITING_SCAN') {
+            output = [...output, `> ${cmd}`, "EXECUTING RE-SCAN SEQUENCE..."];
+            input = '';
+            await updateScroll();
+
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: cmd, userId: $currentUser })
+                });
+                const data = await res.json();
+
+                if (typeof window !== 'undefined' && (window as any).umami) {
+                    (window as any).umami.track('terminal-scan', { cc: data.cc });
+                }
+
+                const resultBlock = `CRIME COEFFICIENT: ${data.cc}\nANALYSIS: ${data.analysis}`;
+                isBreathingAllowed = data.cc > 100;
+
+                const choiceText = isBreathingAllowed ? $dictionary[$locale].EVAL_CHOICE : $dictionary[$locale].EVAL_CHOICE_NO_BREATHING;
+                output = [...output, resultBlock, choiceText];
+                terminalState = 'AWAITING_CHOICE';
+            } catch (err) {
+                output = [...output, "RE-SCAN INTERRUPTED. LINK FAULT."];
+                terminalState = 'COMMAND';
+            }
+            await updateScroll();
+            return;
+        }
+
+        if (upperCmd === 'EXIT') {
+            appMode.set('INITIAL');
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'LOGIN' || upperCmd === 'REGISTER') {
+            import('$app/navigation').then(nav => {
+                nav.goto('/auth?from=/');
+            });
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'ACCOUNT') {
+            if (!$currentUser) {
+                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
+            } else {
+                import('$app/navigation').then(nav => nav.goto('/account'));
+            }
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'TREND') {
+            if (!$currentUser) {
+                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
+            } else {
+                import('$app/navigation').then(nav => nav.goto('/trends'));
+            }
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd.startsWith('LANG')) {
+            const lang = upperCmd.substring(4).trim();
+            if (lang === 'EN' || lang === 'FR') {
+                locale.set(lang);
+                output = [...output, `> ${cmd}`, lang === 'EN' ? "LANGUAGE UPDATED TO ENGLISH." : "LANGUE MISE À JOUR EN FRANÇAIS."];
+            } else {
+                output = [...output, `> ${cmd}`, "INVALID LANGUAGE. SUPPORTED: EN / FR"];
+            }
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'HELP') {
+            output = [...output, `> ${cmd}`, $dictionary[$locale].HELP];
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'CLEAR') {
+            output = [];
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'EVALUATE') {
+            output = [...output, `> ${cmd}`, "MANUAL EVALUATION INITIATED.", "PLEASE DESCRIBE YOUR CURRENT EMOTIONAL STATE FOR DIAGNOSTIC EVALUATION:"];
+            terminalState = 'AWAITING_TEXT';
+            input = '';
+            await updateScroll();
+            return;
+        }
+        if (upperCmd === 'SCAN') {
+            if (!$currentUser) {
+                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
+            } else {
+                output = [...output, `> ${cmd}`, "PERFORMING LIVE COGNITIVE PSYCHO-PASS RE-SCAN...", "ENTER RE-EVALUATION TEXT PARAMETERS TO STABILIZE INDEX:"];
+                terminalState = 'AWAITING_SCAN';
+            }
+            input = '';
+            await updateScroll();
+            return;
+        }
+
+        output = [...output, `> ${cmd}`, "COMMUNICATING WITH SIBYL CORES..."];
         input = '';
+        await updateScroll();
+
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userMessage: cmd })
+            });
+            const data = await res.json();
+            output = [...output, data.reply || "SIBYL STATUS STABLE."];
+        } catch (err) {
+            output = [...output, "CONNECTION TO CORE LINK UNAVAILABLE."];
+        }
         await updateScroll();
     }
 

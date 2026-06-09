@@ -3,20 +3,24 @@
     import ScannerHUD from '$lib/components/ScannerHUD.svelte';
     import BreathingVisualizer from '$lib/components/BreathingVisualizer.svelte';
     import Terminal from '$lib/components/Terminal.svelte';
-    import TrendAnalysis from '$lib/components/TrendAnalysis.svelte';
     import { fade } from 'svelte/transition';
 </script>
 
-{#if $appMode === 'INITIAL' || $appMode === 'SCANNING'}
-    <div transition:fade><ScannerHUD /></div>
-{:else if $appMode === 'BREATHING'}
-    <div transition:fade><BreathingVisualizer /></div>
-{:else if $appMode === 'TERMINAL'}
-    <div transition:fade><Terminal /></div>
-{:else if $appMode === 'TREND_VIEW'}
-    <div transition:fade><TrendAnalysis /></div>
+{#if $appMode === 'INITIAL' || $appMode === 'SCANNING' || $appMode === 'RESULTS'}
+    <div class="view-wrapper" transition:fade><ScannerHUD /></div>
+{:else}
+    {#if $appMode === 'BREATHING'}
+        <div class="view-wrapper" transition:fade><BreathingVisualizer /></div>
+    {:else}
+        <div class="view-wrapper" transition:fade><Terminal /></div>
+    {/if}
 {/if}
 
 <style>
     :global(body) { margin: 0; background: black; overflow: hidden; }
+
+    .view-wrapper {
+        width: 100%;
+        height: 100%;
+    }
 </style>

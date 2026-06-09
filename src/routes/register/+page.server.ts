@@ -15,11 +15,10 @@ export const actions = {
     const result = stmt.run(username, hashedPassword);
 
     cookies.set('session', result.lastInsertRowid.toString(), {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'strict',
-    maxAge: 60 * 60 * 24 * 7 // 1 week
-});
+        path: '/',
+        httpOnly: true,
+        sameSite: 'strict'
+    });
 
 } catch (e) {
     return fail(400, { error: "IDENTIFIER ALREADY IN USE" });

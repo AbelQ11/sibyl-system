@@ -2,17 +2,20 @@
     import { onMount } from 'svelte';
     import { appMode, currentUser } from '$lib/stores';
     import { fade } from 'svelte/transition';
+    import { locale, dictionary } from '$lib/i18n';
 
     let firstCC = 0;
     let lastCC = 0;
     let loading = true;
 
-    const mapY = (cc: number) => 300 - (cc / 450) * 250;
+    const mapY = (cc: number) => 300 - (cc / 500) * 250;
 
     onMount(async () => {
+        // FIXED: Check against the raw string value instead of an object property
         if ($currentUser) {
             try {
-                const res = await fetch(`/api/stats?userId=${$currentUser.id}`);
+                // FIXED: Pass the raw string value directly to your backend lookup path
+                const res = await fetch(`/api/stats?userId=${$currentUser}`);
                 if (res.ok) {
                     const data = await res.json();
                     firstCC = data.first_cc || 0;
@@ -28,15 +31,15 @@
 
 <div class="trend-overlay" transition:fade>
     <div class="trend-card">
-        <div class="header">SUBJECT: {$currentUser?.username || 'GUEST'} | PSYCH-TREND</div>
+        <div class="header">{$dictionary[$locale].TREND_SUBJECT}: {$currentUser ? $currentUser : 'GUEST'} | {$dictionary[$locale].TREND_TITLE}</div>
 
         {#if loading}
-            <div class="message-state">RETRIEVING BIOMETRIC DATA...</div>
+            <div class="message-state">{$dictionary[$locale].TREND_RETRIEVING}</div>
         {:else if firstCC === 0 && lastCC === 0}
-            <div class="message-state">NO DATA FOUND. PLEASE PERFORM A SCAN FIRST.</div>
+            <div class="message-state">{$dictionary[$locale].TREND_NO_DATA}</div>
         {:else}
             <svg viewBox="0 0 400 300" class="graph">
-                {#each [100, 200, 300, 400] as mark}
+                {#each [100, 200, 300, 400, 500] as mark}
                     <line x1="0" y1={mapY(mark)} x2="400" y2={mapY(mark)} stroke="rgba(0, 255, 204, 0.15)" />
                 {/each}
 
@@ -44,19 +47,19 @@
                       stroke="#00ffcc" stroke-width="2" stroke-dasharray="5" />
 
                 <circle cx="50" cy={mapY(firstCC)} r="6" fill="#00ffcc" />
-                <text x="20" y={mapY(firstCC) - 15} fill="#00ffcc" font-size="12">ENTRY: {firstCC}</text>
+                <text x="20" y={mapY(firstCC) - 15} fill="#00ffcc" font-size="12">{$dictionary[$locale].TREND_ENTRY}: {firstCC}</text>
 
                 <circle cx="350" cy={mapY(lastCC)} r="6" fill={lastCC > 100 ? '#ff3333' : '#00ffcc'} />
-                <text x="310" y={mapY(lastCC) - 15} fill="#00ffcc" font-size="12">CURRENT: {lastCC}</text>
+                <text x="310" y={mapY(lastCC) - 15} fill="#00ffcc" font-size="12">{$dictionary[$locale].TREND_CURRENT}: {lastCC}</text>
             </svg>
 
             <div class="status" class:bad={lastCC > firstCC}>
-                RESULT: {lastCC > firstCC ? 'DETERIORATING' : 'STABILIZING'}
+                {$dictionary[$locale].TREND_RESULT}: {lastCC > firstCC ? $dictionary[$locale].TREND_DETERIORATING : $dictionary[$locale].TREND_STABILIZING}
             </div>
         {/if}
 
         <button class="back-btn" on:click={() => appMode.set('TERMINAL')}>
-            RETURN TO TERMINAL
+            {$dictionary[$locale].TREND_RETURN}
         </button>
     </div>
 </div>
