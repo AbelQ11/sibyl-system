@@ -9,6 +9,7 @@
 
 <svelte:head>
     <title>{$dictionary[$locale].SEO_HOME_TITLE}</title>
+    <link rel="canonical" href="https://sibyl-system.mooo.com/" />
     <meta name="description" content={$dictionary[$locale].SEO_HOME_DESC} />
     <meta property="og:title" content={$dictionary[$locale].SEO_HOME_TITLE} />
     <meta property="og:description" content={$dictionary[$locale].SEO_HOME_DESC} />

@@ -13,12 +13,10 @@
     }
 
     $: if (typeof window !== 'undefined' && !$currentUser) {
-        const isAuthPage = $page.url.pathname === '/auth';
-        const isPublicPage = $page.url.pathname === '/privacy' || $page.url.pathname === '/terms';
-        const hasBypassParam = $page.url.searchParams.get('bypass') === 'true';
-        const isScanningMode = $page.url.pathname === '/' && ($appMode === 'INITIAL' || $appMode === 'SCANNING');
+        const publicPaths = ['/', '/auth', '/register', '/privacy', '/terms', '/invite', '/auth/mock-discord'];
+        const isPublicPath = publicPaths.includes($page.url.pathname) || $page.url.pathname.startsWith('/auth/callback');
 
-        if (!isAuthPage && !isPublicPage && !(isScanningMode && hasBypassParam)) {
+        if (!isPublicPath) {
             goto('/auth');
         }
     }
@@ -55,7 +53,7 @@
     {#if $appMode !== 'BREATHING'}
         <nav class="hud-nav">
             <div class="logo" on:click={handleLogoClick} on:keydown={(e) => e.key === 'Enter' && handleLogoClick()} role="button" tabindex="0">
-                SIBYL_SYS // v0.0.1
+                SIBYL_SYS
             </div>
             <div class="nav-links">
                 <a href="/privacy" class="nav-btn-link">

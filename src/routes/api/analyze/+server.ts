@@ -21,7 +21,7 @@ export async function POST({ request }) {
             CRITICAL CALIBRATION METRICS:
             - If the user suffers from any mental illness or you feel like it is the case, put the CC to AT LEAST 200 but it can be higher.
             - Do NOT jump straight to 300+ unless the text indicates extreme, violent, or deeply volatile psychological stress.
-            - You MUST answer with the same language that the user used to send the message. So if the user sent the message in Spanish, your answer is also in spanish.`;
+            - You MUST answer with the same language that the user used to send the message.`;
 
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${AI_API_KEY}`, {
