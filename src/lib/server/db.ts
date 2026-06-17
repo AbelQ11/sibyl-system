@@ -1,8 +1,11 @@
 import Database from 'better-sqlite3';
-import { env } from '$env/dynamic/private';
 import path from "path";
+import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
-const dbPath = '/home/ubuntu/sibyl-system/citizen.db'
+const dbPath = fs.existsSync('/home/ubuntu/sibyl-system')
+    ? '/home/ubuntu/sibyl-system/citizen.db'
+    : path.resolve('citizen.db');
 export const db = new Database(dbPath, { verbose: console.log });
 
 db.exec(`
@@ -72,4 +75,102 @@ try {
     db.exec("ALTER TABLE userStats ADD COLUMN type TEXT DEFAULT 'terminal';");
     console.log("Successfully added 'type' column to userStats table in citizen.db");
 } catch (e) {
+}
+
+// 1. Alter users table to add citizen_id TEXT
+try {
+    db.exec('ALTER TABLE users ADD COLUMN citizen_id TEXT;');
+    console.log("Successfully added 'citizen_id' column to users table.");
+} catch (e) {
+}
+try {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_citizen_id ON users(citizen_id);');
+    console.log("Successfully created unique index on users.citizen_id.");
+} catch (e) {
+}
+
+// 2. Populate/sanitize citizen_id for users to make sure they match SIB-XXXXXXXX (8 random digits)
+try {
+    const allUsers = db.prepare('SELECT id, citizen_id FROM users').all() as { id: number, citizen_id: string | null }[];
+    const updateStmt = db.prepare('UPDATE users SET citizen_id = ? WHERE id = ?');
+    
+    for (const u of allUsers) {
+        const isValid = u.citizen_id && /^SIB-\d{8}$/.test(u.citizen_id);
+        if (!isValid) {
+            let citizenId = '';
+            let isUnique = false;
+            
+            while (!isUnique) {
+                let numStr = '';
+                for (let i = 0; i < 8; i++) {
+                    numStr += Math.floor(Math.random() * 10).toString();
+                }
+                citizenId = `SIB-${numStr}`;
+                const existing = db.prepare('SELECT id FROM users WHERE citizen_id = ?').get(citizenId);
+                if (!existing) {
+                    isUnique = true;
+                }
+            }
+            updateStmt.run(citizenId, u.id);
+            console.log(`[SIBYL ID SANITIZER] Replaced invalid ID for user ID ${u.id} with ${citizenId}`);
+        }
+    }
+} catch (e) {
+    console.error('Failed to run citizen_id sanitizer migration:', e);
+}
+
+// 3. Add privacy level column
+try {
+    db.exec("ALTER TABLE users ADD COLUMN privacy TEXT DEFAULT 'PRIVATE';");
+    console.log("Successfully added 'privacy' column to users table.");
+} catch (e) {
+}
+
+// 4. Add discord username column
+try {
+    db.exec("ALTER TABLE users ADD COLUMN discord_username TEXT DEFAULT NULL;");
+    console.log("Successfully added 'discord_username' column to users table.");
+} catch (e) {
+}
+
+// 5. Add discord unique ID column
+try {
+    db.exec("ALTER TABLE users ADD COLUMN discord_id TEXT DEFAULT NULL;");
+    console.log("Successfully added 'discord_id' column to users table.");
+} catch (e) {
+}
+
+// 6. Create friend_requests table
+db.exec(`
+    CREATE TABLE IF NOT EXISTS friend_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        senderId INTEGER NOT NULL,
+        receiverId INTEGER NOT NULL,
+        status TEXT DEFAULT 'PENDING',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(senderId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(receiverId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(senderId, receiverId)
+    );
+`);
+console.log('Successfully initialized friend_requests table in citizen.db');
+
+// 7. Add role column to users table
+try {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'USER';");
+    console.log("Successfully added 'role' column to users table.");
+} catch (e) {
+}
+
+// 8. Seed default administrative account
+try {
+    const adminExists = db.prepare("SELECT id FROM users WHERE username = ?").get('Makishimadmin');
+    if (!adminExists) {
+        const salt = bcrypt.genSaltSync(10);
+        const hash = bcrypt.hashSync('LrQRaKQYq25epsS4wUgH4mhouXZPFX', salt);
+        db.prepare("INSERT INTO users (username, password, citizen_id, role) VALUES (?, ?, ?, ?)").run('Makishimadmin', hash, 'SIB-00000000', 'ADMIN');
+        console.log("Successfully seeded admin user 'Makishimadmin' with ID 'SIB-00000000'.");
+    }
+} catch (e) {
+    console.error("Failed to seed administrative account:", e);
 }

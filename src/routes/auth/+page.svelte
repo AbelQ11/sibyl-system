@@ -58,10 +58,24 @@
     }
 </script>
 
+<svelte:head>
+    <title>{$dictionary[$locale].SEO_AUTH_TITLE}</title>
+    <meta name="description" content={$dictionary[$locale].SEO_AUTH_DESC} />
+    <meta property="og:title" content={$dictionary[$locale].SEO_AUTH_TITLE} />
+    <meta property="og:description" content={$dictionary[$locale].SEO_AUTH_DESC} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sibyl-system.mooo.com/auth" />
+    <meta property="og:image" content="https://sibyl-system.mooo.com/favicon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={$dictionary[$locale].SEO_AUTH_TITLE} />
+    <meta name="twitter:description" content={$dictionary[$locale].SEO_AUTH_DESC} />
+    <meta name="twitter:image" content="https://sibyl-system.mooo.com/favicon.png" />
+</svelte:head>
+
 <div class="auth-container" transition:fade>
     <div class="crt-overlay"></div>
     <div class="auth-card">
-        <div class="header">{$dictionary[$locale].AUTH_PAGE_TITLE}</div>
+        <h1 class="header">{$dictionary[$locale].AUTH_PAGE_TITLE}</h1>
 
         {#if mode === 'PROMPT'}
             <div class="prompt-text">{$dictionary[$locale].AUTH_PROMPT_QUESTION}</div>
@@ -74,7 +88,7 @@
                 <div class="form-title">{t('AUTH_FORM_TITLE_' + mode)}</div>
 
                 <label for="citizen-name">{$dictionary[$locale].AUTH_LABEL_NAME}</label>
-                <input id="citizen-name" type="text" bind:value={username} autocomplete="off" spellcheck="false" />
+                <input id="citizen-name" type="text" bind:value={username} autocomplete="off" spellcheck="false" maxlength="15" />
 
                 <label for="citizen-password">{$dictionary[$locale].AUTH_LABEL_PASS}</label>
                 <div class="input-wrapper">
@@ -97,6 +111,7 @@
                                 bind:value={confirmPassword}
                         />
                     </div>
+                    <p class="field-hint" transition:fade={{ duration: 150 }}>{$dictionary[$locale].REG_PASSWORD_RULES}</p>
                 {/if}
 
                 <div class="status-msg">{statusMessage}</div>
@@ -131,5 +146,20 @@
     button:hover { background: #00ffcc; color: #000; box-shadow: 0 0 15px #00ffcc; }
 
     .status-msg { min-height: 20px; color: #ff3333; margin-bottom: 15px; font-size: 0.9rem; white-space: normal; word-wrap: break-word; }
+    .field-hint {
+        font-size: 0.75rem;
+        color: rgba(0, 255, 204, 0.6);
+        margin-top: -10px;
+        margin-bottom: 20px;
+        line-height: 1.3;
+    }
     .crt-overlay { position: absolute; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 2px; pointer-events: none; z-index: 10; }
+
+    @media (max-width: 768px) {
+        .auth-card {
+            padding: 20px;
+            max-width: 90%;
+            margin: 10px;
+        }
+    }
 </style>

@@ -15,12 +15,12 @@ export async function POST({ request }) {
             3. Do not include multi-layered sub-bullets, objectives, procedures, or introductory narrative filler text.
             4. Maintain a cold, sharp, highly precise diagnostic tone.
             5. Don't try to send the message with markdown included.
-            6. You MUST answer with the same language that the user used to send the message. So if the user sent the message in Spanish, your answer is also in spanish.
+            6. You MUST answer with the same language that the user used to send the message.
             7. If the user wants to kill people or already did, tell him to call the police.
             8. If the user wants to kill himself, tell him to call an acquaintance that could help them or specialists that are available at any moment.
             `;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${AI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${AI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -241,7 +241,7 @@
 <style>
     .terminal-container {
         position: relative;
-        height: 100vh;
+        height: 100%;
         background-color: #050505;
         color: #00ffcc;
         font-family: 'Courier New', Courier, monospace;
@@ -299,5 +299,14 @@
         flex-grow: 1;
         outline: none;
         text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    }
+
+    @media (max-width: 768px) {
+        .terminal-container {
+            padding: 10px;
+        }
+        .line, .input-line, input {
+            font-size: 0.9rem;
+        }
     }
 </style>

@@ -231,4 +231,40 @@
         background-size: 100% 2px, 3px 100%;
         pointer-events: none; z-index: 100;
     }
+
+    @media (max-width: 768px) {
+        .visualizer-container {
+            width: 300px;
+            height: 300px;
+        }
+        .breathing-circle {
+            top: 100px;
+            left: 100px;
+        }
+        .telemetry-monitor {
+            bottom: 15px;
+            left: 15px;
+            font-size: 0.8rem;
+        }
+        .cc-monitor {
+            bottom: 15px;
+            right: 15px;
+        }
+        .cc-monitor .value {
+            font-size: 3rem;
+        }
+        .instruction {
+            bottom: 130px;
+            font-size: 1.5rem;
+        }
+        .finished-state {
+            left: 15px;
+            right: 15px;
+            width: auto;
+            top: 60px;
+        }
+        .breathing-session {
+            padding-bottom: 65px;
+        }
+    }
 </style>

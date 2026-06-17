@@ -83,11 +83,25 @@
     }
 </script>
 
+<svelte:head>
+    <title>{$dictionary[$locale].SEO_TRENDS_TITLE}</title>
+    <meta name="description" content={$dictionary[$locale].SEO_TRENDS_DESC} />
+    <meta property="og:title" content={$dictionary[$locale].SEO_TRENDS_TITLE} />
+    <meta property="og:description" content={$dictionary[$locale].SEO_TRENDS_DESC} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sibyl-system.mooo.com/trends" />
+    <meta property="og:image" content="https://sibyl-system.mooo.com/favicon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={$dictionary[$locale].SEO_TRENDS_TITLE} />
+    <meta name="twitter:description" content={$dictionary[$locale].SEO_TRENDS_DESC} />
+    <meta name="twitter:image" content="https://sibyl-system.mooo.com/favicon.png" />
+</svelte:head>
+
 <div class="trends-container" transition:fade>
     <div class="crt-overlay"></div>
 
     <div class="main-card card-border">
-        <div class="header">{$dictionary[$locale].TRENDS_PAGE_TITLE}</div>
+        <h1 class="header">{$dictionary[$locale].TRENDS_PAGE_TITLE}</h1>
 
         <div class="subject-info">
             <span>{$dictionary[$locale].TRENDS_SUBJECT_ID}: {$currentUser ? $currentUser.toUpperCase() : 'UNKNOWN'}</span>
@@ -100,7 +114,7 @@
             <div class="message-state">{$dictionary[$locale].TRENDS_NO_LOGS}</div>
         {:else}
             <div class="chart-panel card-border">
-                <div class="panel-header">{$dictionary[$locale].TRENDS_HISTOGRAM_TITLE}</div>
+                <h2 class="panel-header">{$dictionary[$locale].TRENDS_HISTOGRAM_TITLE}</h2>
                 <div class="svg-container">
                     <svg viewBox="0 0 600 440" class="graph">
                         <rect x="0" y={mapY(100)} width="600" height={mapY(0) - mapY(100)} fill="rgba(0, 255, 204, 0.02)" />
@@ -138,7 +152,7 @@
             </div>
 
              <div class="table-panel card-border">
-                <div class="panel-header">{$dictionary[$locale].TRENDS_TELEMETRY_LOGS}</div>
+                <h2 class="panel-header">{$dictionary[$locale].TRENDS_TELEMETRY_LOGS}</h2>
                 <div class="table-container">
                     <table>
                         <thead>
@@ -214,7 +228,7 @@
         font-size: 1.1rem;
         border-bottom: 1px solid rgba(0, 255, 204, 0.3);
         padding-bottom: 15px;
-        margin-bottom: 15px;
+        margin: 0 0 15px 0;
         letter-spacing: 2px;
         font-weight: bold;
     }
@@ -248,6 +262,7 @@
         border-bottom: 1px solid rgba(0, 255, 204, 0.2);
         font-weight: bold;
         letter-spacing: 1px;
+        margin: 0;
     }
 
     .svg-container {
@@ -282,6 +297,7 @@
 
     .table-container {
         overflow-y: auto;
+        overflow-x: auto;
         flex-grow: 1;
         padding: 10px;
     }
@@ -386,5 +402,34 @@
         background-size: 100% 2px;
         pointer-events: none;
         z-index: 10;
+    }
+
+    @media (max-width: 768px) {
+        .trends-container {
+            padding: 10px 10px 65px 10px;
+        }
+        .main-card {
+            padding: 15px;
+            max-height: 100%;
+            height: 100%;
+        }
+        .subject-info {
+            flex-direction: column;
+            gap: 5px;
+        }
+        .panel-header {
+            font-size: 0.75rem;
+            padding: 8px 10px;
+        }
+        table {
+            font-size: 0.75rem;
+        }
+        th, td {
+            padding: 6px;
+        }
+        .actions-row {
+            flex-direction: column;
+            gap: 10px;
+        }
     }
 </style>

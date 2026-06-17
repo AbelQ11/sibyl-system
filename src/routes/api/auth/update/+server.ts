@@ -4,22 +4,38 @@ import { json } from '@sveltejs/kit';
 
 export async function POST({ request }) {
     try {
-        const { oldUsername, newUsername, newPassword } = await request.json();
+        const { oldUsername, newUsername, newPassword, privacy } = await request.json();
 
         if (!oldUsername) {
             return json({ success: false, message: 'MISSING_IDENTIFIER' }, { status: 400 });
         }
 
+        if (!newUsername || newUsername.length < 1 || newUsername.length > 15) {
+            return json({ success: false, message: 'AUTH_ERR_USERNAME_LENGTH' }, { status: 400 });
+        }
+
+        const userPrivacy = privacy || 'PRIVATE';
+
         if (newPassword && newPassword.trim() !== '') {
+            // Validate password strength: length 8-30, has uppercase, lowercase, and digit
+            const isLengthValid = newPassword.length >= 8 && newPassword.length <= 30;
+            const hasUpper = /[A-Z]/.test(newPassword);
+            const hasLower = /[a-z]/.test(newPassword);
+            const hasDigit = /[0-9]/.test(newPassword);
+
+            if (!isLengthValid || !hasUpper || !hasLower || !hasDigit) {
+                return json({ success: false, message: 'AUTH_ERR_PASSWORD_STRENGTH' }, { status: 400 });
+            }
+
             const hash = await bcrypt.hash(newPassword, 10);
-            const stmt = db.prepare('UPDATE users SET username = ?, password = ? WHERE username = ?');
-            const result = stmt.run(newUsername, hash, oldUsername);
+            const stmt = db.prepare('UPDATE users SET username = ?, password = ?, privacy = ? WHERE username = ?');
+            const result = stmt.run(newUsername, hash, userPrivacy, oldUsername);
 
             if (result.changes === 0) return json({ success: false, message: 'USER_NOT_FOUND' }, { status: 404 });
         }
         else {
-            const stmt = db.prepare('UPDATE users SET username = ? WHERE username = ?');
-            const result = stmt.run(newUsername, oldUsername);
+            const stmt = db.prepare('UPDATE users SET username = ?, privacy = ? WHERE username = ?');
+            const result = stmt.run(newUsername, userPrivacy, oldUsername);
 
             if (result.changes === 0) return json({ success: false, message: 'USER_NOT_FOUND' }, { status: 404 });
         }

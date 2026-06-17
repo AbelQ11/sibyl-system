@@ -6,13 +6,39 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
     
     if (sessionId) {
         try {
-            const user = db.prepare('SELECT id, username, avatar FROM users WHERE id = ?').get(sessionId) as { id: number, username: string, avatar: string | null } | undefined;
+            const user = db.prepare('SELECT id, username, avatar, citizen_id, privacy, discord_username, discord_id, role FROM users WHERE id = ?').get(sessionId) as { id: number, username: string, avatar: string | null, citizen_id: string | null, privacy: string, discord_username: string | null, discord_id: string | null, role: string } | undefined;
             if (user) {
+                let citizenId = user.citizen_id;
+                
+                const isValidId = citizenId && /^SIB-\d{8}$/.test(citizenId);
+                if (!isValidId) {
+                    let isUnique = false;
+                    while (!isUnique) {
+                        let numStr = '';
+                        for (let i = 0; i < 8; i++) {
+                            numStr += Math.floor(Math.random() * 10).toString();
+                        }
+                        citizenId = `SIB-${numStr}`;
+                        
+                        const existing = db.prepare('SELECT id FROM users WHERE citizen_id = ?').get(citizenId);
+                        if (!existing) {
+                            isUnique = true;
+                        }
+                    }
+                    db.prepare('UPDATE users SET citizen_id = ? WHERE id = ?').run(citizenId, user.id);
+                    console.log(`[SELF-HEALING ID] Regenerated valid ID ${citizenId} for user ${user.username}`);
+                }
+
                 return {
                     user: {
                         id: user.id,
                         username: user.username,
-                        avatar: user.avatar
+                        avatar: user.avatar,
+                        citizen_id: citizenId,
+                        privacy: user.privacy || 'PRIVATE',
+                        discord_username: user.discord_username,
+                        discord_id: user.discord_id,
+                        role: user.role || 'USER'
                     }
                 };
             }

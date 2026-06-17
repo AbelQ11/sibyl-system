@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { AI_API_KEY } from '$env/static/private';
 import { db } from '$lib/server/db';
+import { triggerDiscordWebhook } from '$lib/server/webhook';
 
 export async function POST({ request }) {
     try {
@@ -23,7 +24,7 @@ export async function POST({ request }) {
             - You MUST answer with the same language that the user used to send the message. So if the user sent the message in Spanish, your answer is also in spanish.`;
 
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${AI_API_KEY}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${AI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -69,6 +70,15 @@ export async function POST({ request }) {
                 if (userRow) {
                     db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'terminal')")
                         .run(userRow.id, parsedData.cc);
+
+                    try {
+                        const user = db.prepare('SELECT username, citizen_id, privacy, discord_id FROM users WHERE id = ?').get(userRow.id) as { username: string, citizen_id: string, privacy: string, discord_id: string | null } | undefined;
+                        if (user) {
+                            await triggerDiscordWebhook(user.username, user.citizen_id, parsedData.cc, user.privacy, user.discord_id);
+                        }
+                    } catch (webhookErr: any) {
+                        console.error('Failed to trigger Discord webhook on analyze:', webhookErr.message);
+                    }
                 } else {
                     console.warn(`[SIBYL API WARNING]: Citizen '${userId}' not found in database registry for logging.`);
                 }

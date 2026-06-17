@@ -4,11 +4,25 @@
     import { locale, dictionary } from '$lib/i18n';
 </script>
 
+<svelte:head>
+    <title>{$dictionary[$locale].SEO_PRIVACY_TITLE}</title>
+    <meta name="description" content={$dictionary[$locale].SEO_PRIVACY_DESC} />
+    <meta property="og:title" content={$dictionary[$locale].SEO_PRIVACY_TITLE} />
+    <meta property="og:description" content={$dictionary[$locale].SEO_PRIVACY_DESC} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sibyl-system.mooo.com/privacy" />
+    <meta property="og:image" content="https://sibyl-system.mooo.com/favicon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={$dictionary[$locale].SEO_PRIVACY_TITLE} />
+    <meta name="twitter:description" content={$dictionary[$locale].SEO_PRIVACY_DESC} />
+    <meta name="twitter:image" content="https://sibyl-system.mooo.com/favicon.png" />
+</svelte:head>
+
 <div class="privacy-container" transition:fade>
     <div class="crt-overlay"></div>
 
     <div class="main-card card-border">
-        <div class="header">{$dictionary[$locale].PRIVACY_TITLE}</div>
+        <h1 class="header">{$dictionary[$locale].PRIVACY_TITLE}</h1>
 
         <div class="security-level">{$dictionary[$locale].PRIVACY_STATUS}</div>
 
@@ -154,5 +168,24 @@
         background-size: 100% 2px;
         pointer-events: none;
         z-index: 10;
+    }
+
+    @media (max-width: 768px) {
+        .privacy-container {
+            padding: 10px 10px 65px 10px;
+        }
+        .main-card {
+            padding: 15px;
+            max-height: 100%;
+            height: 100%;
+        }
+        .content-body {
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        h3 {
+            font-size: 0.9rem;
+            margin-top: 15px;
+        }
     }
 </style>

@@ -1,0 +1,16 @@
+{
+  "name": "sibyl-bot",
+  "version": "1.0.0",
+  "description": "Discord Bot companion for SIBYL System telemetry audits",
+  "main": "sibyl-bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node sibyl-bot.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.0",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7"
+  }
+}
