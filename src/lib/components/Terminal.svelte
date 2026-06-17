@@ -60,7 +60,7 @@
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: cmd, userId: null })
+                    body: JSON.stringify({ text: cmd, userId: $currentUser })
                 });
                 const data = await res.json();
                 

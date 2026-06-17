@@ -64,7 +64,7 @@ export async function POST({ request }) {
 
         const parsedData = { cc, analysis, treatment };
 
-        if (userId) {
+        if (userId && userId !== 'GUEST_PROFILE') {
             try {
                 const userRow = db.prepare('SELECT id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number } | undefined;
                 if (userRow) {
@@ -84,6 +84,13 @@ export async function POST({ request }) {
                 }
             } catch (dbErr) {
                 console.error("Database tracking failure:", dbErr);
+            }
+        } else {
+            // Trigger webhook for GUESTS who aren't logged in, but don't save to database
+            try {
+                await triggerDiscordWebhook('GUEST_PROFILE', 'SIB-UNKNOWN', parsedData.cc, 'PUBLIC', null);
+            } catch (webhookErr: any) {
+                console.error('Failed to trigger Discord webhook for guest:', webhookErr.message);
             }
         }
 
