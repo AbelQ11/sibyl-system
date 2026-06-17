@@ -1,8 +1,4 @@
 import * as env_static from '$env/static/private';
-
-/**
- * Dispatches a real-time warning alert to the configured Discord Webhook URL.
- */
 export async function triggerDiscordWebhook(
     username: string,
     citizenId: string,
@@ -12,22 +8,24 @@ export async function triggerDiscordWebhook(
 ) {
     const webhookUrl = (env_static as any).DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
-        return; // Silent bypass if no webhook configured
+        return;
     }
 
+    const adminAccountId = (env_static as any).ADMIN_ACCOUNT_ID || 'Kiliotsu';
+    if (username !== adminAccountId) {
+        return;
+    }
 
-
-    // Determine styling and threat descriptions in-universe
-    let color = 65280; // optimal: neon green
+    let color = 65280;
     let threatLevel = 'OPTIMAL CITIZEN';
     let instruction = 'Psycho-Pass is clear. Maintain current cognitive stability levels.';
 
     if (cc > 300) {
-        color = 16711680; // lethal: bright red
+        color = 16711680;
         threatLevel = 'LETHAL ELIMINATOR TARGET';
         instruction = 'CRITICAL WARNING: Subject presents severe public threat. Law enforcement units authorized for complete neutralization.';
     } else if (cc > 100) {
-        color = 16753920; // latent: neon yellow/orange
+        color = 16753920;
         threatLevel = 'LATENT CRIMINAL';
         instruction = 'WARNING: Cognitive clouding detected. Calming calming calming therapy protocol requested.';
     }
@@ -37,7 +35,7 @@ export async function triggerDiscordWebhook(
     const payload = {
         embeds: [
             {
-                title: '🚨 [SIBYL SYSTEM - COGNITIVE DIAGNOSTIC WARNING] 🚨',
+                title: '[SIBYL SYSTEM - COGNITIVE DIAGNOSTIC WARNING]',
                 description: `An active Psycho-Pass check was recorded on the SIBYL interface node.\n\n*${instruction}*`,
                 color: color,
                 fields: [

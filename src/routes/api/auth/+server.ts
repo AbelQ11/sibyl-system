@@ -43,7 +43,7 @@ export async function POST({ request, cookies }) {
             const stmt = db.prepare('INSERT INTO users (username, password, citizen_id) VALUES (?, ?, ?)');
             const result = stmt.run(username, hash, citizenId);
 
-            cookies.set('session', result.lastInsertRowid.toString(), { path: '/', httpOnly: true, sameSite: 'lax' });
+            cookies.set('session', result.lastInsertRowid.toString(), { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
             return json({ success: true, code: 'REG_OK', user: username });
         } catch (e) {
             return json({ success: false, code: 'REG_ERR' }); // Username taken
@@ -55,7 +55,7 @@ export async function POST({ request, cookies }) {
         const user = stmt.get(username) as { id: number, username: string, password: string, avatar: string | null } | undefined;
 
         if (user && await bcrypt.compare(password, user.password)) {
-            cookies.set('session', user.id.toString(), { path: '/', httpOnly: true, sameSite: 'lax' });
+            cookies.set('session', user.id.toString(), { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
 
             return json({
                 success: true,

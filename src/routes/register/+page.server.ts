@@ -42,7 +42,8 @@ export const actions = {
         cookies.set('session', result.lastInsertRowid.toString(), {
             path: '/',
             httpOnly: true,
-            sameSite: 'lax'
+            sameSite: 'lax',
+            secure: false
         });
 
     } catch (e) {

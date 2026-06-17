@@ -40,7 +40,7 @@
                 appMode.set('INITIAL');
 
                 const redirectTo = $page.url.searchParams.get('from') || '/';
-                goto(redirectTo);
+                window.location.href = redirectTo;
             } else {
                 statusMessage = `${$dictionary[$locale].AUTH_MSG_FAILURE}${data.code}`;
             }

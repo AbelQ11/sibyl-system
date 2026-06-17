@@ -266,5 +266,17 @@
   "INVITE_USER_DESC": "Deploy the SIBYL app directly to your personal Discord profile. Enables invoking `/inspect` commands in any channel, DM, or server you visit without adding a bot to the server.",
   "INVITE_USER_BTN": "INITIATE USER LINK",
   "INVITE_RETURN_BTN": "RETURN TO HUD",
-  "INVITE_WARNING": "SECURITY NOTICE: SIBYL token authorizations are cryptographically signed. Keep your client credentials secure."
+  "INVITE_WARNING": "SECURITY NOTICE: SIBYL token authorizations are cryptographically signed. Keep your client credentials secure.",
+  "PRIVACY_SEC6_TITLE": "6. AI PSYCHOLOGICAL EVALUATION DATA",
+  "PRIVACY_SEC6_DESC": "Text inputs submitted to the terminal are transmitted to a third-party AI provider (Google Gemini API) to generate cognitive analysis and Crime Coefficient approximations. No personally identifiable information is intentionally attached to these prompts.",
+  "PRIVACY_SEC7_TITLE": "7. DISCORD INTEGRATION & ALERTS",
+  "PRIVACY_SEC7_DESC": "If a citizen links their Discord account, the SIBYL system stores their Discord ID and username. Diagnostic scans may trigger automated webhook alerts to designated Discord channels. Depending on the system administrative settings, your scan results and identity may be broadcasted to these channels regardless of your local privacy mode.",
+  "TERMS_SEC6_TITLE": "6. DISCORD WEBHOOK BROADCASTING",
+  "TERMS_SEC6_DESC": "The citizen acknowledges that biometric scans and Crime Coefficient evaluations may be broadcasted to designated Discord channels. Administrative enforcement nodes may bypass local privacy settings to ensure public safety.",
+  "TERMS_SEC7_TITLE": "7. ROLEPLAY & ENTERTAINMENT DISCLAIMER",
+  "TERMS_SEC7_DESC": "The SIBYL System is strictly a roleplay and entertainment experience. The generated 'Crime Coefficient', psychological analysis, and therapy protocols are produced by artificial intelligence and simulated algorithms. They do not constitute actual medical, psychiatric, or law enforcement advice. Citizens experiencing real mental health crises should contact professional emergency services.",
+  "SCALE_DAY": "DAY",
+  "SCALE_WEEK": "WEEK",
+  "SCALE_MONTH": "MONTH",
+  "SCALE_YEAR": "YEAR"
 }

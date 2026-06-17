@@ -4,16 +4,10 @@
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
     import { locale, dictionary } from '$lib/i18n';
+    import TimeGraph from '$lib/components/TimeGraph.svelte';
 
     let loading = true;
     let history: { cc: number, type?: string, created_at: string }[] = [];
-    let dailyHistory: { date: string, firstCC: number, secondCC: number | null }[] = [];
-
-    const mapY = (cc: number) => 380 - (cc / 500) * 300;
-    const mapX = (index: number, total: number) => {
-        if (total <= 1) return 300;
-        return 80 + (index / (total - 1)) * 440;
-    };
 
     onMount(async () => {
         if (!$currentUser) {
@@ -26,7 +20,6 @@
             if (res.ok) {
                 const data = await res.json();
                 history = data.history || [];
-                processHistory(history);
             }
         } catch (err) {
             console.error("Failed to retrieve psych trend history logs");
@@ -34,40 +27,6 @@
             loading = false;
         }
     });
-
-    function processHistory(rawHistory: { cc: number, created_at: string }[]) {
-        const groups: { [key: string]: number[] } = {};
-        for (const item of rawHistory) {
-            const dateStr = item.created_at ? item.created_at.substring(0, 10) : '';
-            if (dateStr) {
-                if (!groups[dateStr]) {
-                    groups[dateStr] = [];
-                }
-                groups[dateStr].push(item.cc);
-            }
-        }
-
-        const processed = [];
-        for (const date in groups) {
-            const scans = groups[date];
-            processed.push({
-                date: formatDate(date),
-                firstCC: scans[0],
-                secondCC: scans.length > 1 ? scans[1] : null
-            });
-        }
-        dailyHistory = processed;
-    }
-
-    function formatDate(dateStr: string) {
-        try {
-            const parts = dateStr.split('-');
-            if (parts.length === 3) {
-                return `${parts[1]}/${parts[2]}`;
-            }
-        } catch (e) {}
-        return dateStr;
-    }
 
     function formatFullDate(dateStr: string) {
         try {
@@ -110,45 +69,12 @@
 
         {#if loading}
             <div class="message-state">{$dictionary[$locale].TRENDS_RETRIEVING_LOGS}</div>
-        {:else if dailyHistory.length === 0}
+        {:else if history.length === 0}
             <div class="message-state">{$dictionary[$locale].TRENDS_NO_LOGS}</div>
         {:else}
             <div class="chart-panel card-border">
                 <h2 class="panel-header">{$dictionary[$locale].TRENDS_HISTOGRAM_TITLE}</h2>
-                <div class="svg-container">
-                    <svg viewBox="0 0 600 440" class="graph">
-                        <rect x="0" y={mapY(100)} width="600" height={mapY(0) - mapY(100)} fill="rgba(0, 255, 204, 0.02)" />
-
-                        <rect x="0" y={mapY(300)} width="600" height={mapY(100) - mapY(300)} fill="rgba(255, 150, 0, 0.02)" />
-                        <rect x="0" y={mapY(500)} width="600" height={mapY(300) - mapY(500)} fill="rgba(255, 51, 51, 0.02)" />
-
-                        <line x1="0" y1={mapY(100)} x2="600" y2={mapY(100)} stroke="rgba(0, 255, 204, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />
-                        <text x="15" y={mapY(100) - 6} fill="#00ffcc" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_MONITOR}</text>
-
-                        <line x1="0" y1={mapY(300)} x2="600" y2={mapY(300)} stroke="rgba(255, 51, 51, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />
-                        <text x="15" y={mapY(300) - 6} fill="#ff3333" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_LETHAL}</text>
-
-                        {#each dailyHistory as day, index}
-                            {@const x = mapX(index, dailyHistory.length)}
-                            {@const y1 = mapY(day.firstCC)}
-                            
-                            {#if day.secondCC !== null}
-                                {@const y2 = mapY(day.secondCC)}
-                                <line x1={x} y1={y1} x2={x} y2={y2} 
-                                      stroke={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} 
-                                      stroke-width="3" />
-                                
-                                <circle cx={x} cy={y2} r="6" fill={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} class="dot" />
-                                <text x={x + 10} y={y2 + 3} fill={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} font-size="10" font-family="monospace">2nd: {day.secondCC}</text>
-                            {/if}
-
-                            <circle cx={x} cy={y1} r="6" fill={day.firstCC > 100 ? '#ff3333' : '#00ffcc'} class="dot" />
-                            <text x={x - 48} y={y1 + 3} fill="#00ffcc" font-size="10" font-family="monospace">1st: {day.firstCC}</text>
-
-                            <text x={x} y="415" fill="#00ffcc" font-size="10" text-anchor="middle" font-family="monospace">{day.date}</text>
-                        {/each}
-                    </svg>
-                </div>
+                <TimeGraph {history} />
             </div>
 
              <div class="table-panel card-border">

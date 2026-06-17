@@ -4,7 +4,7 @@ import { json } from '@sveltejs/kit';
 
 export async function POST({ request }) {
     try {
-        const { oldUsername, newUsername, newPassword, privacy } = await request.json();
+        const { oldUsername, newUsername, newPassword, privacy, bio } = await request.json();
 
         if (!oldUsername) {
             return json({ success: false, message: 'MISSING_IDENTIFIER' }, { status: 400 });
@@ -15,6 +15,11 @@ export async function POST({ request }) {
         }
 
         const userPrivacy = privacy || 'PRIVATE';
+        
+        let safeBio = null;
+        if (bio !== undefined) {
+            safeBio = typeof bio === 'string' ? bio.substring(0, 50) : null;
+        }
 
         if (newPassword && newPassword.trim() !== '') {
             // Validate password strength: length 8-30, has uppercase, lowercase, and digit
@@ -28,14 +33,14 @@ export async function POST({ request }) {
             }
 
             const hash = await bcrypt.hash(newPassword, 10);
-            const stmt = db.prepare('UPDATE users SET username = ?, password = ?, privacy = ? WHERE username = ?');
-            const result = stmt.run(newUsername, hash, userPrivacy, oldUsername);
+            const stmt = db.prepare('UPDATE users SET username = ?, password = ?, privacy = ?, bio = ? WHERE username = ?');
+            const result = stmt.run(newUsername, hash, userPrivacy, safeBio, oldUsername);
 
             if (result.changes === 0) return json({ success: false, message: 'USER_NOT_FOUND' }, { status: 404 });
         }
         else {
-            const stmt = db.prepare('UPDATE users SET username = ?, privacy = ? WHERE username = ?');
-            const result = stmt.run(newUsername, userPrivacy, oldUsername);
+            const stmt = db.prepare('UPDATE users SET username = ?, privacy = ?, bio = ? WHERE username = ?');
+            const result = stmt.run(newUsername, userPrivacy, safeBio, oldUsername);
 
             if (result.changes === 0) return json({ success: false, message: 'USER_NOT_FOUND' }, { status: 404 });
         }

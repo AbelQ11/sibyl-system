@@ -335,7 +335,6 @@
 
     .options-row { display: flex; gap: 20px; justify-content: center; margin-bottom: 15px; }
     .warning-text { color: inherit; text-shadow: 0 0 10px currentColor; margin-top: 0; margin-bottom: 20px; text-align: center; font-size: 1rem; letter-spacing: 1px; }
-    .shortcut-hint { font-size: 0.75rem; color: inherit; opacity: 0.5; letter-spacing: 1px; }
     .running-status { color: #ff3333; font-weight: bold; font-size: 1.1rem; letter-spacing: 2px; animation: blink 0.8s infinite; text-shadow: 0 0 8px rgba(255, 51, 51, 0.3); }
     .hidden { display: none !important; }
 

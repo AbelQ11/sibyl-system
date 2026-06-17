@@ -5,6 +5,8 @@
     import { fade } from 'svelte/transition';
     import { locale, dictionary } from '$lib/i18n';
 
+    import TimeGraph from '$lib/components/TimeGraph.svelte';
+
     export let data;
     let firstCC = 0;
     let lastCC = 0;
@@ -223,56 +225,10 @@
 
     let newUsername = $currentUser || '';
     let newPassword = '';
+    let userBio = data?.user?.bio || '';
     let settingsMessage = '';
     let settingsSuccess = false;
 
-    interface DailyData {
-        date: string;
-        firstCC: number;
-        secondCC: number | null;
-    }
-
-    let dailyHistory: DailyData[] = [];
-
-    const mapY = (cc: number) => 240 - (cc / 500) * 180;
-    const mapX = (index: number, total: number) => {
-        if (total <= 1) return 200;
-        return 70 + (index / (total - 1)) * 260;
-    };
-
-    function processHistory(rawHistory: { cc: number, created_at: string }[]) {
-        const groups: { [key: string]: number[] } = {};
-        for (const item of rawHistory) {
-            const dateStr = item.created_at ? item.created_at.substring(0, 10) : '';
-            if (dateStr) {
-                if (!groups[dateStr]) {
-                    groups[dateStr] = [];
-                }
-                groups[dateStr].push(item.cc);
-            }
-        }
-
-        const processed: DailyData[] = [];
-        for (const date in groups) {
-            const scans = groups[date];
-            processed.push({
-                date: formatDate(date),
-                firstCC: scans[0],
-                secondCC: scans.length > 1 ? scans[1] : null
-            });
-        }
-        dailyHistory = processed;
-    }
-
-    function formatDate(dateStr: string) {
-        try {
-            const parts = dateStr.split('-');
-            if (parts.length === 3) {
-                return `${parts[1]}/${parts[2]}`;
-            }
-        } catch (e) {}
-        return dateStr;
-    }
 
     onMount(async () => {
         const params = new URLSearchParams(window.location.search);
@@ -296,16 +252,18 @@
         try {
             const res = await fetch(`/api/stats?userId=${$currentUser}`);
             if (res.ok) {
-                const data = await res.json();
-                firstCC = data.first_cc || 0;
-                lastCC = data.last_cc || 0;
-                if (data.history) {
-                    history = data.history;
-                    processHistory(data.history);
+                const statData = await res.json();
+                firstCC = statData.first_cc || 0;
+                lastCC = statData.last_cc || 0;
+                if (statData.history) {
+                    history = statData.history;
                 }
 
-                if (data.avatar) {
-                    userAvatar.set(data.avatar);
+                if (statData.avatar) {
+                    userAvatar.set(statData.avatar);
+                }
+                if (statData.bio !== undefined) {
+                    userBio = statData.bio || '';
                 }
             }
         } catch (err) {
@@ -381,11 +339,12 @@
             const res = await fetch('/api/auth/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    oldUsername: $currentUser,
-                    newUsername,
-                    newPassword,
-                    privacy: privacySetting
+                body: JSON.stringify({ 
+                    oldUsername: $currentUser, 
+                    newUsername: newUsername,
+                    newPassword: newPassword,
+                    privacy: privacySetting,
+                    bio: userBio
                 })
             });
             const data = await res.json();
@@ -415,7 +374,7 @@
         }
         currentUser.set(null);
         userAvatar.set(null);
-        goto('/auth');
+        window.location.href = '/auth';
     }
 </script>
 
@@ -513,6 +472,12 @@
                 </div>
             </div>
 
+            <div class="form" style="margin-bottom: 25px;">
+                <label for="bio">CITIZEN DOSSIER (MAX 50 CHARS)</label>
+                <input id="bio" type="text" bind:value={userBio} autocomplete="off" spellcheck="false" maxlength="50" placeholder="Enter short bio..." />
+                <button class="action-btn" on:click={updateProfile} style="margin-top: 10px;">UPDATE DOSSIER</button>
+            </div>
+
             <div class="discord-sync-box" style="margin-top: auto;">
                 <div class="discord-title">{$dictionary[$locale].ACC_DISCORD_SYNC_TITLE}</div>
                 {#if data?.user?.discord_username}
@@ -546,34 +511,10 @@
 
             {#if loading}
                 <div class="message-state">{$dictionary[$locale].TREND_RETRIEVING}</div>
-            {:else if dailyHistory.length === 0}
+            {:else if history.length === 0}
                 <div class="message-state">{$dictionary[$locale].ACC_NO_HISTORY}</div>
             {:else}
-                <svg viewBox="0 0 400 300" class="graph">
-                    {#each [100, 200, 300, 400, 500] as mark}
-                        <line x1="0" y1={mapY(mark)} x2="400" y2={mapY(mark)} stroke="rgba(0, 255, 204, 0.15)" />
-                    {/each}
-
-                    {#each dailyHistory as day, index}
-                        {@const x = mapX(index, dailyHistory.length)}
-                        {@const y1 = mapY(day.firstCC)}
-                        
-                        {#if day.secondCC !== null}
-                            {@const y2 = mapY(day.secondCC)}
-                            <line x1={x} y1={y1} x2={x} y2={y2}
-                                  stroke={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} 
-                                  stroke-width="2" />
-                            
-                            <circle cx={x} cy={y2} r="5" fill={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} />
-                            <text x={x + 7} y={y2 + 3} fill={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} font-size="9" font-family="monospace">2nd: {day.secondCC}</text>
-                        {/if}
-
-                        <circle cx={x} cy={y1} r="5" fill={day.firstCC > 100 ? '#ff3333' : '#00ffcc'} />
-                        <text x={x - 42} y={y1 + 3} fill="#00ffcc" font-size="9" font-family="monospace">1st: {day.firstCC}</text>
-
-                        <text x={x} y="280" fill="#00ffcc" font-size="9" text-anchor="middle" font-family="monospace">{day.date}</text>
-                    {/each}
-                </svg>
+                <TimeGraph {history} width={400} height={300} />
 
                 <div class="status" class:bad={lastCC > firstCC}>
                     {$dictionary[$locale].ACC_DIAGNOSTIC_TRACKING}: {lastCC > firstCC ? $dictionary[$locale].TREND_DETERIORATING : $dictionary[$locale].TREND_STABILIZING}
@@ -614,7 +555,6 @@
     .logout-btn { border-color: #ff3333; color: #ff3333; margin-top: 25px; font-size: 0.85rem; padding: 8px; }
     .logout-btn:hover { background: #ff3333; color: #000; box-shadow: 0 0 15px #ff3333; }
     .message-state { text-align: center; padding: 60px 0; border: 1px dashed rgba(0, 255, 204, 0.2); margin-bottom: 20px; }
-    .graph { width: 100%; border-bottom: 1px solid #00ffcc; border-left: 1px solid #00ffcc; margin-bottom: 15px; background: linear-gradient(rgba(0, 255, 204, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 204, 0.03) 1px, transparent 1px); background-size: 20px 20px; }
     .status { margin-bottom: 35px; font-weight: bold; text-align: center; font-size: 1.05rem; }
     .status.bad { color: #ff3333; text-shadow: 0 0 10px #ff3333; }
     .crt-overlay { position: absolute; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 2px; pointer-events: none; z-index: 10; }

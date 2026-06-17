@@ -14,7 +14,7 @@ export async function GET({ url, cookies }) {
     }
 
     try {
-        const userRow = db.prepare('SELECT id, username, avatar, privacy, citizen_id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number, username: string, avatar: string | null, privacy: string, citizen_id: string | null } | undefined;
+        const userRow = db.prepare('SELECT id, username, avatar, privacy, citizen_id, bio FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number, username: string, avatar: string | null, privacy: string, citizen_id: string | null, bio: string | null } | undefined;
 
         if (!userRow) {
             return json({
@@ -22,6 +22,7 @@ export async function GET({ url, cookies }) {
                 last_cc: 0,
                 avatar: null,
                 citizen_id: null,
+                bio: null,
                 history: []
             });
         }
@@ -60,6 +61,7 @@ export async function GET({ url, cookies }) {
             last_cc,
             avatar: userRow.avatar,
             citizen_id: userRow.citizen_id,
+            bio: userRow.bio,
             history: stats
         });
 

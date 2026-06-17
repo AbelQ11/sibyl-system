@@ -162,6 +162,13 @@ try {
 } catch (e) {
 }
 
+// 7.5 Add bio column to users table
+try {
+    db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL;");
+    console.log("Successfully added 'bio' column to users table.");
+} catch (e) {
+}
+
 // 8. Seed default administrative account
 try {
     const adminExists = db.prepare("SELECT id FROM users WHERE username = ?").get('Makishimadmin');

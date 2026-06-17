@@ -12,8 +12,8 @@
         userAvatar.set(data.user.avatar || null);
     }
 
-    $: if (typeof window !== 'undefined' && !$currentUser) {
-        const publicPaths = ['/', '/auth', '/register', '/privacy', '/terms', '/invite', '/auth/mock-discord'];
+    $: if (typeof window !== 'undefined' && !data?.user) {
+        const publicPaths = ['/auth', '/register', '/privacy', '/terms', '/invite', '/auth/mock-discord'];
         const isPublicPath = publicPaths.includes($page.url.pathname) || $page.url.pathname.startsWith('/auth/callback');
 
         if (!isPublicPath) {

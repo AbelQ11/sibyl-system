@@ -57,6 +57,16 @@
             <p>
                 {$dictionary[$locale].PRIVACY_SEC5_DESC}
             </p>
+
+            <h3>{$dictionary[$locale].PRIVACY_SEC6_TITLE}</h3>
+            <p>
+                {$dictionary[$locale].PRIVACY_SEC6_DESC}
+            </p>
+
+            <h3>{$dictionary[$locale].PRIVACY_SEC7_TITLE}</h3>
+            <p>
+                {$dictionary[$locale].PRIVACY_SEC7_DESC}
+            </p>
         </div>
 
         <button class="return-btn" on:click={() => goto('/')}>
@@ -136,10 +146,6 @@
 
     li {
         margin: 8px 0;
-    }
-
-    strong {
-        color: #00ffcc;
     }
 
     .return-btn {

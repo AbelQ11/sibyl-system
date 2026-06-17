@@ -51,6 +51,16 @@
             <p>
                 {$dictionary[$locale].TERMS_SEC5_DESC}
             </p>
+
+            <h3>{$dictionary[$locale].TERMS_SEC6_TITLE}</h3>
+            <p>
+                {$dictionary[$locale].TERMS_SEC6_DESC}
+            </p>
+
+            <h3>{$dictionary[$locale].TERMS_SEC7_TITLE}</h3>
+            <p>
+                {$dictionary[$locale].TERMS_SEC7_DESC}
+            </p>
         </div>
 
         <button class="return-btn" on:click={() => goto('/')}>

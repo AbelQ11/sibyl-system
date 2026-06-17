@@ -4,6 +4,8 @@
     import { locale, dictionary } from '$lib/i18n';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
+    import { currentUser } from '$lib/stores';
+    import TimeGraph from '$lib/components/TimeGraph.svelte';
 
     const username = $page.params.username;
     
@@ -13,6 +15,7 @@
     let citizenId = '';
     let firstCC = 0;
     let lastCC = 0;
+    let bio = '';
     
     interface ScanData {
         cc: number;
@@ -20,20 +23,7 @@
         created_at: string;
     }
     
-    interface DailyData {
-        date: string;
-        firstCC: number;
-        secondCC: number | null;
-    }
-
     let history: ScanData[] = [];
-    let dailyHistory: DailyData[] = [];
-
-    const mapY = (cc: number) => 380 - (cc / 500) * 300;
-    const mapX = (index: number, total: number) => {
-        if (total <= 1) return 300;
-        return 80 + (index / (total - 1)) * 440;
-    };
 
     onMount(async () => {
         try {
@@ -44,8 +34,8 @@
                 lastCC = data.last_cc || 0;
                 avatar = data.avatar || null;
                 citizenId = data.citizen_id || 'SIB-UNKNOWN';
+                bio = data.bio || '';
                 history = data.history || [];
-                processHistory(history);
             } else if (res.status === 403) {
                 unauthorized = true;
             }
@@ -55,40 +45,6 @@
             loading = false;
         }
     });
-
-    function processHistory(rawHistory: ScanData[]) {
-        const groups: { [key: string]: number[] } = {};
-        for (const item of rawHistory) {
-            const dateStr = item.created_at ? item.created_at.substring(0, 10) : '';
-            if (dateStr) {
-                if (!groups[dateStr]) {
-                    groups[dateStr] = [];
-                }
-                groups[dateStr].push(item.cc);
-            }
-        }
-
-        const processed: DailyData[] = [];
-        for (const date in groups) {
-            const scans = groups[date];
-            processed.push({
-                date: formatDate(date),
-                firstCC: scans[0],
-                secondCC: scans.length > 1 ? scans[1] : null
-            });
-        }
-        dailyHistory = processed;
-    }
-
-    function formatDate(dateStr: string) {
-        try {
-            const parts = dateStr.split('-');
-            if (parts.length === 3) {
-                return `${parts[1]}/${parts[2]}`;
-            }
-        } catch (e) {}
-        return dateStr;
-    }
 
     function formatFullDate(dateStr: string) {
         if (!dateStr) return '';
@@ -104,6 +60,32 @@
         if (cc >= 300) return $dictionary[$locale].TRENDS_STATUS_LETHAL;
         if (cc > 100) return $dictionary[$locale].TRENDS_STATUS_PARALYZER;
         return $dictionary[$locale].TRENDS_STATUS_MONITOR;
+    }
+
+    async function adminAction(action: 'ERASE_DATA' | 'ERASE_ACCOUNT' | 'TOGGLE_PRIVACY') {
+        if (!confirm(`ADMIN PROTOCOL: Are you sure you want to execute ${action} on ${username}?`)) return;
+
+        try {
+            const res = await fetch('/api/admin/user', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, action })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(data.message);
+                if (action === 'ERASE_ACCOUNT') {
+                    goto('/community');
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert(data.error);
+            }
+        } catch (e) {
+            alert("Admin action failed. Check console.");
+        }
     }
 </script>
 
@@ -161,6 +143,13 @@
                             <span class="bio-value">{citizenId || 'SIB-UNKNOWN'}</span>
                         </div>
                     </div>
+                    
+                    {#if bio}
+                        <div class="citizen-bio">
+                            <span class="bio-label">CITIZEN DOSSIER:</span>
+                            <p class="bio-text">"{bio}"</p>
+                        </div>
+                    {/if}
 
                     <div class="cc-readout">
                         <span class="readout-label">LATEST CRIME COEFFICIENT READOUT:</span>
@@ -175,46 +164,11 @@
 
                 <div class="panel card-border">
                     <h2 class="sub-header">{$dictionary[$locale].TRENDS_HISTOGRAM_TITLE}</h2>
-                    {#if dailyHistory.length === 0}
-                        <div class="empty-state">{$dictionary[$locale].TRENDS_NO_LOGS}</div>
-                    {:else}
-                        <div class="svg-container">
-                            <svg viewBox="0 0 600 440" class="graph">
-                                <rect x="0" y={mapY(100)} width="600" height={mapY(0) - mapY(100)} fill="rgba(0, 255, 204, 0.02)" />
-                                <rect x="0" y={mapY(300)} width="600" height={mapY(100) - mapY(300)} fill="rgba(255, 150, 0, 0.02)" />
-                                <rect x="0" y={mapY(500)} width="600" height={mapY(300) - mapY(500)} fill="rgba(255, 51, 51, 0.02)" />
-
-                                <line x1="0" y1={mapY(100)} x2="600" y2={mapY(100)} stroke="rgba(0, 255, 204, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />
-                                <text x="15" y={mapY(100) - 6} fill="#00ffcc" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_MONITOR}</text>
-
-                                <line x1="0" y1={mapY(300)} x2="600" y2={mapY(300)} stroke="rgba(255, 51, 51, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />
-                                <text x="15" y={mapY(300) - 6} fill="#ff3333" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_LETHAL}</text>
-
-                                {#each dailyHistory as day, index}
-                                    {@const x = mapX(index, dailyHistory.length)}
-                                    {@const y1 = mapY(day.firstCC)}
-                                    
-                                    {#if day.secondCC !== null}
-                                        {@const y2 = mapY(day.secondCC)}
-                                        <line x1={x} y1={y1} x2={x} y2={y2} 
-                                              stroke={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} 
-                                              stroke-width="3" />
-                                        <circle cx={x} cy={y2} r="6" fill={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} class="dot" />
-                                        <text x={x + 10} y={y2 + 3} fill={day.secondCC > 100 ? '#ff3333' : '#00ffcc'} font-size="10" font-family="monospace">2nd: {day.secondCC}</text>
-                                    {/if}
-
-                                    <circle cx={x} cy={y1} r="6" fill={day.firstCC > 100 ? '#ff3333' : '#00ffcc'} class="dot" />
-                                    <text x={x - 48} y={y1 + 3} fill="#00ffcc" font-size="10" font-family="monospace">1st: {day.firstCC}</text>
-
-                                    <text x={x} y="415" fill="#00ffcc" font-size="10" text-anchor="middle" font-family="monospace">{day.date}</text>
-                                {/each}
-                            </svg>
-                        </div>
-                    {/if}
+                    <TimeGraph {history} />
                 </div>
             </div>
 
-            {#if dailyHistory.length > 0}
+            {#if history.length > 0}
                 <div class="table-panel card-border">
                     <h2 class="sub-header">{$dictionary[$locale].TRENDS_TELEMETRY_LOGS}</h2>
                     <div class="table-container">
@@ -251,6 +205,17 @@
             <button class="return-btn" on:click={() => goto('/friends')}>
                 {$dictionary[$locale].CITIZEN_RETURN_BTN}
             </button>
+
+            {#if $currentUser === $page.data.adminAccountId}
+                <div class="admin-controls card-border" style="margin-top: 25px;">
+                    <h2 class="sub-header" style="color: #ff3333; border-bottom-color: #ff3333;">&gt;&gt; SYSTEM ADMINISTRATOR OVERRIDE</h2>
+                    <div class="admin-buttons" style="display: flex; gap: 15px;">
+                        <button class="admin-btn erase-data" on:click={() => adminAction('ERASE_DATA')}>ERASE TELEMETRY DATA</button>
+                        <button class="admin-btn toggle-privacy" on:click={() => adminAction('TOGGLE_PRIVACY')}>TOGGLE PRIVACY</button>
+                        <button class="admin-btn erase-account" on:click={() => adminAction('ERASE_ACCOUNT')}>ERASE CITIZEN ACCOUNT</button>
+                    </div>
+                </div>
+            {/if}
         </div>
     {/if}
 </div>
@@ -331,4 +296,11 @@
         .main-card { padding: 15px; height: 100%; max-height: 100%; }
         .avatar-section { flex-direction: column; align-items: flex-start; }
     }
+
+    .admin-controls { padding: 20px; background: rgba(255, 51, 51, 0.05); border-color: #ff3333; }
+    .admin-btn { padding: 10px; font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; border: 1px solid; flex: 1; }
+    .erase-data { border-color: #ffaa00; color: #ffaa00; background: transparent; }
+    .erase-data:hover { background: #ffaa00; color: #000; box-shadow: 0 0 10px #ffaa00; }
+    .erase-account { border-color: #ff3333; color: #ff3333; background: transparent; }
+    .erase-account:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
 </style>

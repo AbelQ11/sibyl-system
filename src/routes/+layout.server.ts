@@ -1,12 +1,14 @@
 import { db } from '$lib/server/db';
 import type { LayoutServerLoad } from './$types';
+import { env } from '$env/dynamic/private';
 
 export const load: LayoutServerLoad = async ({ cookies }) => {
+    const adminAccountId = env.ADMIN_ACCOUNT_ID || 'Makishimadmin';
     const sessionId = cookies.get('session');
     
     if (sessionId) {
         try {
-            const user = db.prepare('SELECT id, username, avatar, citizen_id, privacy, discord_username, discord_id, role FROM users WHERE id = ?').get(sessionId) as { id: number, username: string, avatar: string | null, citizen_id: string | null, privacy: string, discord_username: string | null, discord_id: string | null, role: string } | undefined;
+            const user = db.prepare('SELECT id, username, avatar, citizen_id, privacy, discord_username, discord_id, role, bio FROM users WHERE id = ?').get(sessionId) as { id: number, username: string, avatar: string | null, citizen_id: string | null, privacy: string, discord_username: string | null, discord_id: string | null, role: string, bio: string | null } | undefined;
             if (user) {
                 let citizenId = user.citizen_id;
                 
@@ -30,6 +32,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
                 }
 
                 return {
+                    adminAccountId,
                     user: {
                         id: user.id,
                         username: user.username,
@@ -38,7 +41,8 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
                         privacy: user.privacy || 'PRIVATE',
                         discord_username: user.discord_username,
                         discord_id: user.discord_id,
-                        role: user.role || 'USER'
+                        role: user.role || 'USER',
+                        bio: user.bio || ''
                     }
                 };
             }
@@ -48,6 +52,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
     }
     
     return {
+        adminAccountId,
         user: null
     };
 };

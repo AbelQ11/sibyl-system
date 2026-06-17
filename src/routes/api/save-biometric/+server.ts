@@ -13,13 +13,7 @@ export async function POST({ request }) {
         const userRow = db.prepare('SELECT id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number } | undefined;
         
         if (!userRow) {
-            // Trigger webhook for GUESTS who aren't logged in, but don't save to database
-            try {
-                await triggerDiscordWebhook('GUEST_PROFILE', 'SIB-UNKNOWN', cc, 'PUBLIC', null);
-            } catch (webhookErr: any) {
-                console.error('Failed to trigger Discord webhook for guest:', webhookErr.message);
-            }
-            return json({ error: 'Citizen not found in database registry' }, { status: 404 });
+            return json({ error: 'Unauthorized: Citizen identification required' }, { status: 401 });
         }
 
         db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'biometric')").run(userRow.id, cc);

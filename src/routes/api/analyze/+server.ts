@@ -62,36 +62,31 @@ export async function POST({ request }) {
             treatment = ["Execute calming control protocols.", "Initialize rhythmic focus.", "Stabilize baseline metrics."];
         }
 
+        if (!userId || userId === 'GUEST_PROFILE') {
+            return json({ error: 'Unauthorized: Citizen identification required.' }, { status: 401 });
+        }
+
         const parsedData = { cc, analysis, treatment };
 
-        if (userId && userId !== 'GUEST_PROFILE') {
-            try {
-                const userRow = db.prepare('SELECT id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number } | undefined;
-                if (userRow) {
-                    db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'terminal')")
-                        .run(userRow.id, parsedData.cc);
+        try {
+            const userRow = db.prepare('SELECT id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number } | undefined;
+            if (userRow) {
+                db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'terminal')")
+                    .run(userRow.id, parsedData.cc);
 
-                    try {
-                        const user = db.prepare('SELECT username, citizen_id, privacy, discord_id FROM users WHERE id = ?').get(userRow.id) as { username: string, citizen_id: string, privacy: string, discord_id: string | null } | undefined;
-                        if (user) {
-                            await triggerDiscordWebhook(user.username, user.citizen_id, parsedData.cc, user.privacy, user.discord_id);
-                        }
-                    } catch (webhookErr: any) {
-                        console.error('Failed to trigger Discord webhook on analyze:', webhookErr.message);
+                try {
+                    const user = db.prepare('SELECT username, citizen_id, privacy, discord_id FROM users WHERE id = ?').get(userRow.id) as { username: string, citizen_id: string, privacy: string, discord_id: string | null } | undefined;
+                    if (user) {
+                        await triggerDiscordWebhook(user.username, user.citizen_id, parsedData.cc, user.privacy, user.discord_id);
                     }
-                } else {
-                    console.warn(`[SIBYL API WARNING]: Citizen '${userId}' not found in database registry for logging.`);
+                } catch (webhookErr: any) {
+                    console.error('Failed to trigger Discord webhook on analyze:', webhookErr.message);
                 }
-            } catch (dbErr) {
-                console.error("Database tracking failure:", dbErr);
+            } else {
+                console.warn(`[SIBYL API WARNING]: Citizen '${userId}' not found in database registry for logging.`);
             }
-        } else {
-            // Trigger webhook for GUESTS who aren't logged in, but don't save to database
-            try {
-                await triggerDiscordWebhook('GUEST_PROFILE', 'SIB-UNKNOWN', parsedData.cc, 'PUBLIC', null);
-            } catch (webhookErr: any) {
-                console.error('Failed to trigger Discord webhook for guest:', webhookErr.message);
-            }
+        } catch (dbErr) {
+            console.error("Database tracking failure:", dbErr);
         }
 
         return json(parsedData);

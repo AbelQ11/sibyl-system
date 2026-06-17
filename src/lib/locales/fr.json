@@ -266,5 +266,17 @@
   "INVITE_USER_DESC": "Déployez l'application SIBYL directement sur votre profil Discord. Permet d'invoquer la commande `/inspect` dans n'importe quel salon, MP ou serveur visité sans ajouter de bot.",
   "INVITE_USER_BTN": "INITIER LE LIEN UTILISATEUR",
   "INVITE_RETURN_BTN": "RETOUR AU TERMINAL",
-  "INVITE_WARNING": "AVIS DE SÉCURITÉ : Les autorisations de token SIBYL sont signées cryptographiquement. Sécurisez vos identifiants."
+  "INVITE_WARNING": "AVIS DE SÉCURITÉ : Les autorisations de token SIBYL sont signées cryptographiquement. Sécurisez vos identifiants.",
+  "PRIVACY_SEC6_TITLE": "6. DONNÉES D'ÉVALUATION PSYCHOLOGIQUE PAR L'IA",
+  "PRIVACY_SEC6_DESC": "Les textes soumis au terminal sont transmis à un fournisseur d'IA tiers (Google Gemini API) pour générer une analyse cognitive et des approximations du coefficient de criminalité. Aucune information personnellement identifiable n'est intentionnellement jointe à ces requêtes.",
+  "PRIVACY_SEC7_TITLE": "7. INTÉGRATION DISCORD ET ALERTES",
+  "PRIVACY_SEC7_DESC": "Si un citoyen lie son compte Discord, le système SIBYL stocke son ID et nom d'utilisateur Discord. Les scans de diagnostic peuvent déclencher des alertes webhook automatiques vers des canaux Discord désignés. Selon les paramètres administratifs du système, les résultats de votre scan et votre identité peuvent être diffusés sur ces canaux quel que soit votre mode de confidentialité local.",
+  "TERMS_SEC6_TITLE": "6. DIFFUSION WEBHOOK DISCORD",
+  "TERMS_SEC6_DESC": "Le citoyen reconnaît que les scans biométriques et les évaluations du coefficient de criminalité peuvent être diffusés sur des canaux Discord désignés. Les nœuds d'application administratifs peuvent contourner les paramètres de confidentialité locaux pour assurer la sécurité publique.",
+  "TERMS_SEC7_TITLE": "7. AVERTISSEMENT DE JEU DE RÔLE ET DE DIVERTISSEMENT",
+  "TERMS_SEC7_DESC": "Le système SIBYL est strictement une expérience de jeu de rôle et de divertissement. Le 'coefficient de criminalité' généré, l'analyse psychologique et les protocoles de thérapie sont produits par l'intelligence artificielle et des algorithmes simulés. Ils ne constituent pas des conseils médicaux, psychiatriques ou d'application de la loi réels. Les citoyens confrontés à de véritables crises de santé mentale doivent contacter les services d'urgence professionnels.",
+  "SCALE_DAY": "JOUR",
+  "SCALE_WEEK": "SEMAINE",
+  "SCALE_MONTH": "MOIS",
+  "SCALE_YEAR": "ANNÉE"
 }
