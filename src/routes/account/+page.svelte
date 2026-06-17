@@ -593,7 +593,7 @@
 </div>
 
 <style>
-    .account-container { position: fixed; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow-y: auto; }
+    .account-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow-y: auto; }
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 30px; width: 100%; max-width: 1400px; }
     .panel { background: #050505; padding: 30px; display: flex; flex-direction: column; }
     .card-border { border: 1px solid #00ffcc; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); }

@@ -258,7 +258,6 @@
                         <button on:click={runMockScan}>{$dictionary[$locale].HUD_BTN_CAMERA}</button>
                         <button on:click={triggerManualTextScan}>{$dictionary[$locale].HUD_BTN_TEXT}</button>
                     </div>
-                    <div class="shortcut-hint">{$dictionary[$locale].HUD_SHORTCUT_HINT_INIT}</div>
                 </div>
 
             {:else}
@@ -274,13 +273,6 @@
                                 <button on:click={() => handleInterventionChoice('BREATHING')}>{$dictionary[$locale].HUD_BTN_BREATHING}</button>
                             {/if}
                             <button on:click={() => handleInterventionChoice('TERMINAL')}>{$dictionary[$locale].HUD_BTN_TERMINAL}</button>
-                        </div>
-                        <div class="shortcut-hint">
-                            {#if $crimeCoefficient > 100}
-                                {$dictionary[$locale].HUD_SHORTCUT_HINT_RESULTS_BREATH}
-                            {:else}
-                                {$dictionary[$locale].HUD_SHORTCUT_HINT_RESULTS_NO_BREATH}
-                            {/if}
                         </div>
                     </div>
                 {/if}

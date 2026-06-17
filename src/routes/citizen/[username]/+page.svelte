@@ -256,7 +256,7 @@
 </div>
 
 <style>
-    .profile-container { position: fixed; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow: hidden; }
+    .profile-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow: hidden; }
     .loading-panel { padding: 40px; background: #050505; border: 1px solid #00ffcc; text-align: center; }
     .loader-text { font-size: 0.95rem; font-weight: bold; letter-spacing: 2px; }
     

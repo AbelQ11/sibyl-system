@@ -67,7 +67,7 @@
 
 <style>
     .invite-container {
-        position: fixed;
+        position: absolute;
         inset: 0;
         background: #050505;
         display: flex;
@@ -295,17 +295,26 @@
     @media (max-width: 768px) {
         .grid-layout {
             grid-template-columns: 1fr;
-            gap: 20px;
+            gap: 10px;
+            margin-bottom: 15px;
         }
         .main-card {
-            padding: 20px;
-            max-height: 90vh;
+            padding: 15px;
+            max-height: 95%;
         }
         .deploy-card {
-            padding: 15px;
+            padding: 12px;
         }
         .desc {
-            margin: 15px 0;
+            margin: 5px 0;
+            font-size: 0.7rem;
+        }
+        .subtitle {
+            margin-bottom: 12px;
+        }
+        .warning-section {
+            padding: 10px;
+            margin-bottom: 15px;
         }
     }
 </style>

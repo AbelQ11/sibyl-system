@@ -126,7 +126,7 @@
 </div>
 
 <style>
-    .auth-container { position: fixed; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding-bottom: 45px; /* Prevent bottom bar overlapping */ }
+    .auth-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; }
     .auth-card { border: 1px solid #00ffcc; padding: 40px; width: 100%; max-width: 500px; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); background: #050505; z-index: 20; }
     .header { font-size: 1.1rem; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin-bottom: 30px; letter-spacing: 2px; text-align: center; }
     .prompt-text, label { font-size: 0.9rem; margin-bottom: 12px; display: block; letter-spacing: 1px; }

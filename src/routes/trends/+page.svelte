@@ -193,7 +193,7 @@
 
 <style>
     .trends-container {
-        position: fixed;
+        position: absolute;
         inset: 0;
         background: #050505;
         display: flex;

@@ -89,58 +89,57 @@
                     </div>
                 {/if}
             </div>
-            <button class="burger-btn" on:click={toggleMenu}>
-                [ ☰ MENU ]
+            <button class="burger-btn" class:open={menuOpen} on:click={toggleMenu} aria-label="Open Menu">
+                ☰
             </button>
         </nav>
+    {/if}
 
-        {#if menuOpen}
-            <div class="burger-menu-overlay" transition:fade>
-                <div class="crt-overlay"></div>
-                <button class="burger-close-btn" on:click={closeMenu}>
-                    [ ✕ CLOSE ]
+    {#if menuOpen}
+        <div class="burger-menu-overlay" transition:fade>
+            <div class="crt-overlay"></div>
+            <button class="burger-close-btn" on:click={closeMenu}>
+                [ ✕ CLOSE ]
+            </button>
+            <div class="burger-menu-content">
+                <div class="burger-logo">SIBYL SYSTEM MODULES</div>
+                
+                <a href="/privacy" class="burger-link">
+                    {$dictionary[$locale].NAV_PRIVACY || 'PRIVACY POLICY'}
+                </a>
+                <a href="/terms" class="burger-link">
+                    {$dictionary[$locale].NAV_TERMS || 'TERMS OF SERVICE'}
+                </a>
+                <a href="https://ko-fi.com/kiliotsu" target="_blank" rel="noopener noreferrer" class="burger-link">
+                    {$dictionary[$locale].NAV_KOFI || 'SUPPORT SIBYL'}
+                </a>
+                <a href="https://github.com/AbelQ11/sibyl-system" target="_blank" rel="noopener noreferrer" class="burger-link">
+                    {$dictionary[$locale].NAV_GITHUB || 'SYSTEM REPOSITORY'}
+                </a>
+                <a href="/invite" class="burger-link">
+                    {$dictionary[$locale].NAV_INVITE || 'DISCORD BOT'}
+                </a>
+                
+                <button class="burger-lang-btn" on:click={toggleLanguage}>
+                    [ LANGUAGE: {$locale} ]
                 </button>
-                <div class="burger-menu-content">
-                    <div class="burger-logo">SIBYL SYSTEM MODULES</div>
-                    
-                    <a href="/privacy" class="burger-link">
-                        {$dictionary[$locale].NAV_PRIVACY || 'PRIVACY POLICY'}
-                    </a>
-                    <a href="/terms" class="burger-link">
-                        {$dictionary[$locale].NAV_TERMS || 'TERMS OF SERVICE'}
-                    </a>
-                    <a href="https://ko-fi.com/kiliotsu" target="_blank" rel="noopener noreferrer" class="burger-link">
-                        {$dictionary[$locale].NAV_KOFI || 'SUPPORT SIBYL'}
-                    </a>
-                    <a href="https://github.com/AbelQ11/sibyl-system" target="_blank" rel="noopener noreferrer" class="burger-link">
-                        {$dictionary[$locale].NAV_GITHUB || 'SYSTEM REPOSITORY'}
-                    </a>
-                    <a href="/invite" class="burger-link">
-                        {$dictionary[$locale].NAV_INVITE || 'DISCORD BOT'}
-                    </a>
-                    
-                    <button class="burger-lang-btn" on:click={toggleLanguage}>
-                        [ LANGUAGE: {$locale} ]
-                    </button>
 
-                    {#if $currentUser}
-                        <div class="burger-profile-box" on:click={() => goto('/account')} on:keydown={(e) => e.key === 'Enter' && goto('/account')} role="button" tabindex="0">
-                            <div class="burger-avatar">
-                                {#if $userAvatar}
-                                    <img src={$userAvatar} alt="Avatar" />
-                                {:else}
-                                    <div class="blank-burger-avatar"></div>
-                                {/if}
-                            </div>
-                            <span class="burger-username">{$currentUser.toUpperCase()}</span>
+                {#if $currentUser}
+                    <div class="burger-profile-box" on:click={() => goto('/account')} on:keydown={(e) => e.key === 'Enter' && goto('/account')} role="button" tabindex="0">
+                        <div class="burger-avatar">
+                            {#if $userAvatar}
+                                <img src={$userAvatar} alt="Avatar" />
+                            {:else}
+                                <div class="blank-burger-avatar"></div>
+                            {/if}
                         </div>
-                    {/if}
-                </div>
+                        <span class="burger-username">{$currentUser.toUpperCase()}</span>
+                    </div>
+                {/if}
             </div>
-        {/if}
+        </div>
     {/if}
 </div>
-
 <style>
     :global(body) { margin: 0; background-color: #050505; overflow: hidden; }
     .app-wrapper { display: flex; flex-direction: column; height: 100vh; position: relative; }
@@ -185,25 +184,6 @@
         box-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
     }
 
-    @media (max-width: 768px) {
-        .hud-nav {
-            height: auto;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 25px;
-        }
-        .content-frame {
-            height: calc(100vh - 45px);
-        }
-        .nav-links {
-            display: none;
-        }
-        .burger-btn {
-            display: block;
-        }
-    }
-
     .burger-btn {
         display: none;
         background: transparent;
@@ -223,7 +203,7 @@
         position: fixed;
         inset: 0;
         background: rgba(5, 5, 5, 0.98);
-        z-index: 2000;
+        z-index: 10000;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -345,5 +325,53 @@
     }
     .content-frame.full-height {
         height: 100vh;
+    }
+
+    @media (max-width: 768px) {
+        .hud-nav {
+            position: fixed;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            z-index: 9999;
+            width: auto;
+            height: auto;
+            padding: 0;
+            box-shadow: none;
+            pointer-events: none;
+        }
+        .content-frame {
+            height: 100vh;
+        }
+        .logo {
+            display: none;
+        }
+        .nav-links {
+            display: none;
+        }
+        .burger-btn {
+            display: block;
+            background: transparent;
+            border: none;
+            color: #00ffcc;
+            padding: 8px;
+            font-size: 2.2rem;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.7);
+            cursor: pointer;
+            pointer-events: auto;
+            line-height: 1;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease, text-shadow 0.2s ease;
+        }
+        .burger-btn.open {
+            transform: rotate(90deg);
+        }
+        .burger-btn:hover, .burger-btn:active {
+            color: #fff;
+            text-shadow: 0 0 20px #00ffcc;
+            background: transparent;
+            box-shadow: none;
+        }
     }
 </style>
