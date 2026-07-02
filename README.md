@@ -146,4 +146,4 @@ Creates and initializes `citizen.db` automatically in the workspace root. It man
 ## Session Security & Privacy Settings
 * **Biometric Privacy**: The camera feed is visually masked via CSS (`width: 1px`, `height: 1px`, `opacity: 0`) to respect user privacy.
 * **HTTP Session Lifetimes**: User cookies utilize standard session headers containing no expiration attributes, meaning authentication variables are immediately cleared from browser RAM once the tab or browser session terminates.
-* **Discord Sync Constraints**: A Discord account can only be linked to 1 citizen profile at a time, except for the system administrator (`Kiliotsu`) who bypasses this rule to link to the admin panel profile simultaneously.
+* **Discord Sync Constraints**: A Discord account can only be linked to 1 citizen profile at a time.
