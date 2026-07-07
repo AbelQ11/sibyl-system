@@ -222,7 +222,7 @@
                     <div class="empty-state">{$dictionary[$locale].NET_NO_ACTIVE}</div>
                 {:else}
                     <ul class="friends-list">
-                        {#each friends as friend}
+                        {#each friends.filter(f => f.role !== 'ADMIN') as friend}
                             {@const ccInfo = getCCInfo(friend.last_cc)}
                             <li class="friend-item">
                                 <a href="/citizen/{friend.username}" class="friend-link-container">
@@ -243,9 +243,14 @@
                                         {ccInfo.label}
                                     </div>
                                 </a>
-                                <button class="desync-btn" on:click={() => removeConnection(undefined, friend.id)}>
-                                    {$dictionary[$locale].NET_BTN_DESYNC}
-                                </button>
+                                <div class="friend-actions">
+                                    <button class="chat-btn" on:click={() => goto(`/chat?private=${friend.id}`)}>
+                                        [ SECURE CHAT ]
+                                    </button>
+                                    <button class="desync-btn" on:click={() => removeConnection(undefined, friend.id)}>
+                                        {$dictionary[$locale].NET_BTN_DESYNC}
+                                    </button>
+                                </div>
                             </li>
                         {/each}
                     </ul>
@@ -301,13 +306,14 @@
     .username { font-size: 0.85rem; font-weight: bold; color: #fff; }
     .system-id { font-size: 0.7rem; opacity: 0.6; }
     
-    .actions { display: flex; gap: 10px; }
-    .accept-btn, .decline-btn, .desync-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 12px; font-size: 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .actions, .friend-actions { display: flex; gap: 10px; }
+    .accept-btn, .decline-btn, .desync-btn, .chat-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 12px; font-size: 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.2s; }
     .accept-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px #00ffcc; }
     .decline-btn { border-color: #ff3333; color: #ff3333; }
     .decline-btn:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
-    .desync-btn { border-color: #ffaa00; color: #ffaa00; margin-left: 15px; }
+    .desync-btn { border-color: #ffaa00; color: #ffaa00; }
     .desync-btn:hover { background: #ffaa00; color: #000; box-shadow: 0 0 10px #ffaa00; }
+    .chat-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px #00ffcc; }
     
     .cc-status-badge { font-size: 0.75rem; padding: 4px 8px; border: 1px solid; font-weight: bold; text-align: center; }
     .cc-status-badge.stable { border-color: #00ffcc; color: #00ffcc; background: rgba(0, 255, 204, 0.05); }

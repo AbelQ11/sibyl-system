@@ -39,15 +39,22 @@ To generate a production-ready Node.js bundle:
 
 ## Friend & Community Systems
 
-The SIBYL network enables citizens to establish compliance synchronization channels and explore the public database registry.
+The SIBYL network enables citizens to establish compliance synchronization channels, explore the public database registry, and form secure groups.
 
 ### 1. Compliance Sync Link (Friend Requests)
 * **Status Levels**: Users can establish encrypted sync links. Statuses include `PENDING`, `ACCEPTED`, or `REJECTED`.
+* **Auto-Admin Link**: Newly registered citizens automatically receive an `ACCEPTED` sync link with the SIBYL System Admin (`Makishimadmin`) allowing immediate secure comms.
 * **Privacy Controls**: When a citizen's profile privacy is set to `FRIENDS` (compliance synced), only profiles with an established/accepted sync link are authorized to view their longitudinal diagnostics and average Crime Coefficients.
 
-### 2. Community Directory
+### 2. Community Directory & Chat Networking
 * **Public Search**: A searchable global index of all registered citizens.
-* **Registry Querying**: Citizens can query by Username or Citizen ID (`SIB-XXXXXXXX`). Search results respect user privacy levels (`PRIVATE` accounts will hide sensitive CC charts and scan histories from non-synced querying users).
+* **Groups (Divisions)**: Citizens can create or join Groups. Groups enforce a strict `maxCC` threshold for entry.
+  * **Roles**: The creator acts as the **Inspector** (Admin) and can appoint up to two **Enforcers** (Moderators).
+* **Secure Chat System**:
+  * Cross-platform Public Chat and Group Chat are mirrored in real-time with the Discord bot.
+  * Private secure lines are available between friends.
+  * Messages support a **"Read-Once"** (auto-destruct) mechanic and are color-coded (Hued) dynamically based on the sender's Crime Coefficient.
+* **Advanced Privacy**: Users can restrict visibility of their profile to `PUBLIC`, `FRIENDS`, `GROUP ONLY`, `FRIENDS AND GROUP ONLY`, or `PRIVATE`.
 
 ---
 
@@ -80,6 +87,11 @@ The project includes a Discord bot companion located in the `sibyl-bot/` directo
 ### Bot Commands
 * `/inspect <query>`: Query citizen profiles and check their psychological/diagnostic records. Only public profiles are inspectable unless the requesting Discord ID is linked to a SIBYL `ADMIN` profile.
 * `/id <query>`: Generates and returns a beautiful, verified SIBYL citizen pass holographic ID card image matching the website design. The card dynamically renders the citizen's **average** Crime Coefficient & Hue, synced Discord profile name, and custom Base64 uploaded avatar.
+
+### Chat & Sync Features
+* **Global Announcements**: Messages sent by the SIBYL Admin on the website are broadcast universally into Discord.
+* **Cross-Platform Sync**: Chat rooms on the website (Public & Groups) automatically synchronize in real-time with corresponding Discord text channels.
+* **Threat Alerts**: If a citizen's Crime Coefficient spikes over 300, the bot will automatically ping the `@Enforcer` and `@Inspector` roles in Discord (provided the user's privacy settings allow data sharing).
 
 ---
 

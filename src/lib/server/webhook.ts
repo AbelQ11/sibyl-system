@@ -1,4 +1,4 @@
-import * as env_static from '$env/static/private';
+import { env } from '$env/dynamic/private';
 export async function triggerDiscordWebhook(
     username: string,
     citizenId: string,
@@ -6,13 +6,13 @@ export async function triggerDiscordWebhook(
     privacy: string,
     discordId: string | null
 ) {
-    const webhookUrl = (env_static as any).DISCORD_WEBHOOK_URL;
+    const webhookUrl = env.DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
         return;
     }
 
-    const adminAccountId = (env_static as any).ADMIN_ACCOUNT_ID || 'Kiliotsu';
-    if (username !== adminAccountId) {
+    if (privacy === 'PRIVATE') {
+        /** Do not alert if privacy is completely PRIVATE */
         return;
     }
 
@@ -63,6 +63,22 @@ export async function triggerDiscordWebhook(
         } else {
             console.log(`[SIBYL WEBHOOK]: Successfully alerted on citizen ${username} CC spike.`);
         }
+
+        /** Send to local bot for group enforcer/inspector pinging if CC > 300 */
+        if (cc > 300) {
+            await fetch('http://127.0.0.1:3005/webhook', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${env.SIB_BOT_SECRET}`
+                },
+                body: JSON.stringify({
+                    action: 'THREAT_ALERT',
+                    payload: { username, cc, citizenId }
+                })
+            }).catch(() => {});
+        }
+
     } catch (err: any) {
         console.error('[SIBYL WEBHOOK ERROR]: Connection failure during dispatch:', err.message);
     }

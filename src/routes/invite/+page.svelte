@@ -4,8 +4,8 @@
     import { locale, dictionary } from '$lib/i18n';
     import { currentUser } from '$lib/stores';
 
-    const guildLink = "https://discord.com/oauth2/authorize?client_id=1516433121724338186&permissions=19456&response_type=code&redirect_uri=https%3A%2F%2Fsibyl-system.mooo.com%2Fauth%2Fcallback%2Fdiscord&integration_type=0&scope=identify+bot+applications.commands";
-    const userLink = "https://discord.com/oauth2/authorize?client_id=1516433121724338186&response_type=code&redirect_uri=https%3A%2F%2Fsibyl-system.mooo.com%2Fauth%2Fcallback%2Fdiscord&integration_type=1&scope=identify+applications.commands";
+    const guildLink = "https://discord.com/oauth2/authorize?client_id=1516433121724338186&permissions=2952906768&integration_type=0&scope=bot+applications.commands";
+    const userLink = "https://discord.com/oauth2/authorize?client_id=1516433121724338186&integration_type=0&scope=applications.commands";
 
     function handleReturn() {
         if ($currentUser) {

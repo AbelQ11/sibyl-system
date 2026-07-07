@@ -25,6 +25,6 @@ vite.config.ts.timestamp-*
 /../generated/prisma
 
 # Databases
-citizen.db
+static/citizen.db
 *.sqlite
 *.sqlite3

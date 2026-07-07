@@ -11,10 +11,10 @@
     const mapY = (cc: number) => 300 - (cc / 500) * 250;
 
     onMount(async () => {
-        // FIXED: Check against the raw string value instead of an object property
+        /** FIXED: Check against the raw string value instead of an object property */
         if ($currentUser) {
             try {
-                // FIXED: Pass the raw string value directly to your backend lookup path
+                /** FIXED: Pass the raw string value directly to your backend lookup path */
                 const res = await fetch(`/api/stats?userId=${$currentUser}`);
                 if (res.ok) {
                     const data = await res.json();

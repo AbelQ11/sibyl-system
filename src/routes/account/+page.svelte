@@ -435,6 +435,8 @@
                 <select id="privacy" bind:value={privacySetting} class="privacy-select">
                     <option value="PRIVATE">{$dictionary[$locale].ACC_PRIVACY_PRIVATE}</option>
                     <option value="FRIENDS">{$dictionary[$locale].ACC_PRIVACY_FRIENDS}</option>
+                    <option value="GROUP ONLY">GROUP ONLY</option>
+                    <option value="FRIENDS AND GROUP ONLY">FRIENDS AND GROUP ONLY</option>
                     <option value="PUBLIC">{$dictionary[$locale].ACC_PRIVACY_PUBLIC}</option>
                 </select>
 
@@ -465,6 +467,9 @@
                 <div class="network-controls-group">
                     <button class="network-btn-panel" on:click={() => goto('/friends')}>
                         {$dictionary[$locale].ACC_BTN_NETWORK}
+                    </button>
+                    <button class="group-btn-panel" on:click={() => goto('/groups')}>
+                        [ GROUPS ]
                     </button>
                     <button class="community-btn-panel" on:click={() => goto('/community')}>
                         {$dictionary[$locale].ACC_BTN_COMMUNITY}
@@ -525,6 +530,9 @@
                 <button class="trend-detail-btn" on:click={() => goto('/trends')}>
                     {$dictionary[$locale].ACC_BTN_VIEW_LOGS}
                 </button>
+                <button class="export-btn" on:click={() => window.open('/api/export-data', '_blank')}>
+                    [ EXPORT MY DATA ]
+                </button>
                 <button class="terminal-btn" on:click={() => goto('/')}>
                     {$dictionary[$locale].ACC_BTN_RETURN_TERMINAL}
                 </button>
@@ -571,7 +579,28 @@
         color: #00ffcc;
         box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
     }
-    .network-btn-panel, .community-btn-panel {
+    .community-btn-panel:hover, .group-btn-panel:hover {
+        background: rgba(0, 255, 204, 0.2);
+        color: #fff;
+    }
+    .export-btn {
+        width: 100%;
+        padding: 12px;
+        background: transparent;
+        color: #aaaaaa;
+        border: 1px solid #555;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-top: 10px;
+    }
+    .export-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        border-color: #fff;
+    }
+    .network-btn-panel, .group-btn-panel, .community-btn-panel {
         width: 100%;
         background: transparent;
         border: 1px solid #00ffcc;
@@ -586,7 +615,7 @@
         font-family: inherit;
         transition: all 0.2s;
     }
-    .network-btn-panel:hover, .community-btn-panel:hover {
+    .network-btn-panel:hover, .group-btn-panel:hover, .community-btn-panel:hover {
         background: #00ffcc;
         color: #000;
         box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
@@ -715,6 +744,7 @@
         background: rgba(0, 255, 204, 0.15);
         border-color: #00ffcc;
     }
+
     .actions-row { display: flex; flex-direction: column; gap: 15px; }
     .trend-detail-btn { border-color: #00ffcc; color: #00ffcc; }
 

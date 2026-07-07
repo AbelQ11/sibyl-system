@@ -2,16 +2,22 @@ import { db } from "$lib/server/db";
 import bcrypt from 'bcryptjs';
 import { json } from '@sveltejs/kit';
 
+/**
+ * Handles authentication requests including user registration, login, and logout.
+ * 
+ * @param {Object} event - The SvelteKit request event.
+ * @param {Request} event.request - The incoming HTTP request containing the action and credentials.
+ * @param {import('@sveltejs/kit').Cookies} event.cookies - The cookies object for session management.
+ * @returns {Promise<Response>} JSON response indicating success or failure of the requested action.
+ */
 export async function POST({ request, cookies }) {
     const { action, username, password } = await request.json();
 
     if (action === 'REGISTER') {
-        // Validate username length: 1 to 15 characters
         if (!username || username.length < 1 || username.length > 15) {
             return json({ success: false, code: 'AUTH_ERR_USERNAME_LENGTH' });
         }
 
-        // Validate password strength: length 8-30, has uppercase, lowercase, and digit
         const isLengthValid = password && password.length >= 8 && password.length <= 30;
         const hasUpper = /[A-Z]/.test(password);
         const hasLower = /[a-z]/.test(password);
@@ -24,7 +30,6 @@ export async function POST({ request, cookies }) {
         try {
             const hash = await bcrypt.hash(password, 10);
             
-            // Generate a unique citizen_id (SIB-XXXXXXXX)
             let citizenId = '';
             let isUnique = false;
             while (!isUnique) {
@@ -42,11 +47,22 @@ export async function POST({ request, cookies }) {
 
             const stmt = db.prepare('INSERT INTO users (username, password, citizen_id) VALUES (?, ?, ?)');
             const result = stmt.run(username, hash, citizenId);
+            
+            const newUserId = result.lastInsertRowid;
+            
+            try {
+                const admin = db.prepare("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1").get() as { id: number } | undefined;
+                if (admin) {
+                    db.prepare("INSERT INTO friend_requests (senderId, receiverId, status) VALUES (?, ?, 'ACCEPTED')").run(admin.id, newUserId);
+                }
+            } catch (err) {
+                console.error("Failed to auto-add admin as friend:", err);
+            }
 
-            cookies.set('session', result.lastInsertRowid.toString(), { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
+            cookies.set('session', newUserId.toString(), { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
             return json({ success: true, code: 'REG_OK', user: username });
         } catch (e) {
-            return json({ success: false, code: 'REG_ERR' }); // Username taken
+            return json({ success: false, code: 'REG_ERR' });
         }
     }
 

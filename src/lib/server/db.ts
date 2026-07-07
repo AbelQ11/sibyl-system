@@ -77,7 +77,7 @@ try {
 } catch (e) {
 }
 
-// 1. Alter users table to add citizen_id TEXT
+/** 1. Alter users table to add citizen_id TEXT */
 try {
     db.exec('ALTER TABLE users ADD COLUMN citizen_id TEXT;');
     console.log("Successfully added 'citizen_id' column to users table.");
@@ -89,7 +89,7 @@ try {
 } catch (e) {
 }
 
-// 2. Populate/sanitize citizen_id for users to make sure they match SIB-XXXXXXXX (8 random digits)
+/** 2. Populate/sanitize citizen_id for users to make sure they match SIB-XXXXXXXX (8 random digits) */
 try {
     const allUsers = db.prepare('SELECT id, citizen_id FROM users').all() as { id: number, citizen_id: string | null }[];
     const updateStmt = db.prepare('UPDATE users SET citizen_id = ? WHERE id = ?');
@@ -119,28 +119,28 @@ try {
     console.error('Failed to run citizen_id sanitizer migration:', e);
 }
 
-// 3. Add privacy level column
+/** 3. Add privacy level column */
 try {
     db.exec("ALTER TABLE users ADD COLUMN privacy TEXT DEFAULT 'PRIVATE';");
     console.log("Successfully added 'privacy' column to users table.");
 } catch (e) {
 }
 
-// 4. Add discord username column
+/** 4. Add discord username column */
 try {
     db.exec("ALTER TABLE users ADD COLUMN discord_username TEXT DEFAULT NULL;");
     console.log("Successfully added 'discord_username' column to users table.");
 } catch (e) {
 }
 
-// 5. Add discord unique ID column
+/** 5. Add discord unique ID column */
 try {
     db.exec("ALTER TABLE users ADD COLUMN discord_id TEXT DEFAULT NULL;");
     console.log("Successfully added 'discord_id' column to users table.");
 } catch (e) {
 }
 
-// 6. Create friend_requests table
+/** 6. Create friend_requests table */
 db.exec(`
     CREATE TABLE IF NOT EXISTS friend_requests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,21 +155,21 @@ db.exec(`
 `);
 console.log('Successfully initialized friend_requests table in citizen.db');
 
-// 7. Add role column to users table
+/** 7. Add role column to users table */
 try {
     db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'USER';");
     console.log("Successfully added 'role' column to users table.");
 } catch (e) {
 }
 
-// 7.5 Add bio column to users table
+/** 7.5 Add bio column to users table */
 try {
     db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL;");
     console.log("Successfully added 'bio' column to users table.");
 } catch (e) {
 }
 
-// 8. Seed default administrative account
+/** 8. Seed default administrative account */
 try {
     const adminExists = db.prepare("SELECT id FROM users WHERE username = ?").get('Makishimadmin');
     if (!adminExists) {
@@ -181,3 +181,49 @@ try {
 } catch (e) {
     console.error("Failed to seed administrative account:", e);
 }
+
+/** 9. Create chat_groups table */
+db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        maxCC INTEGER NOT NULL,
+        inspectorId INTEGER NOT NULL,
+        discord_role_id TEXT,
+        discord_channel_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(inspectorId) REFERENCES users(id) ON DELETE CASCADE
+    );
+`);
+console.log('Successfully initialized chat_groups table in citizen.db');
+
+/** 10. Create chat_group_members table */
+db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_group_members (
+        groupId INTEGER NOT NULL,
+        userId INTEGER NOT NULL,
+        role TEXT DEFAULT 'CITIZEN',
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (groupId, userId),
+        FOREIGN KEY(groupId) REFERENCES chat_groups(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+`);
+console.log('Successfully initialized chat_group_members table in citizen.db');
+
+/** 11. Create chat_messages table */
+db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        senderId INTEGER NOT NULL,
+        receiverId INTEGER,
+        groupId INTEGER,
+        text TEXT NOT NULL,
+        isReadOnce BOOLEAN DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(senderId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(receiverId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(groupId) REFERENCES chat_groups(id) ON DELETE CASCADE
+    );
+`);
+console.log('Successfully initialized chat_messages table in citizen.db');

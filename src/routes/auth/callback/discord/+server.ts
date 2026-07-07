@@ -25,10 +25,10 @@ export async function GET({ url, cookies }) {
     let discordUsername = '';
     let discordId = '';
 
-    // If real credentials are set and we're not using the mock authorization code
+    /** If real credentials are set and we're not using the mock authorization code */
     if (clientId && clientSecret && code !== 'mock_code_1234') {
         try {
-            // 1. Exchange authorization code for access token
+            /** 1. Exchange authorization code for access token */
             const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -50,7 +50,7 @@ export async function GET({ url, cookies }) {
             const tokenData = await tokenResponse.json();
             const accessToken = tokenData.access_token;
 
-            // 2. Fetch user profile details
+            /** 2. Fetch user profile details */
             const userResponse = await fetch('https://discord.com/api/users/@me', {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
@@ -62,7 +62,7 @@ export async function GET({ url, cookies }) {
             const userData = await userResponse.json();
             discordId = userData.id;
             
-            // Format username (supporting discriminator fallback)
+            /** Format username (supporting discriminator fallback) */
             discordUsername = userData.discriminator && userData.discriminator !== '0'
                 ? `${userData.username}#${userData.discriminator}`
                 : userData.username;
@@ -72,12 +72,12 @@ export async function GET({ url, cookies }) {
             throw redirect(302, '/account?discord=error');
         }
     } else {
-        // Mock authorization callback details
+        /** Mock authorization callback details */
         discordUsername = 'SibylCitizen#2026';
         discordId = '49204859012384920';
     }
 
-    // Check if the discordId is already linked to another account
+    /** Check if the discordId is already linked to another account */
     const existingLink = db.prepare('SELECT username, role FROM users WHERE discord_id = ? AND id != ?')
                            .get(discordId, userId) as { username: string, role: string } | undefined;
 
@@ -97,7 +97,7 @@ export async function GET({ url, cookies }) {
     }
 
     try {
-        // 3. Save Discord credentials
+        /** 3. Save Discord credentials */
         db.prepare('UPDATE users SET discord_username = ?, discord_id = ? WHERE id = ?')
           .run(discordUsername, discordId, userId);
     } catch (dbErr) {

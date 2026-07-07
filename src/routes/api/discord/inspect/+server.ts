@@ -24,13 +24,15 @@ export async function GET({ url, request, cookies }) {
         ? Math.round(allStats.reduce((sum, item) => sum + item.cc, 0) / allStats.length)
         : cc;
 
-    // Check authorization:
-    // 1. Check if the request carries the shared SIB_BOT_SECRET token
+    /**
+     * Check authorization:
+     * 1. Check if the request carries the shared SIB_BOT_SECRET token
+     */
     const authHeader = request.headers.get('Authorization');
     const botSecret = (env_static as any).SIB_BOT_SECRET;
     const isAuthorizedBot = botSecret && authHeader === `Bearer ${botSecret}`;
 
-    // 2. Check if the requester is logged in as an administrator
+    /** 2. Check if the requester is logged in as an administrator */
     const sessionId = cookies.get('session');
     let isAdmin = false;
     if (sessionId) {
@@ -38,7 +40,7 @@ export async function GET({ url, request, cookies }) {
         isAdmin = requester?.role === 'ADMIN';
     }
 
-    // 3. Check if the request is from Discord and triggered by a Discord user linked to a SIBYL Admin account
+    /** 3. Check if the request is from Discord and triggered by a Discord user linked to a SIBYL Admin account */
     const requesterDiscordId = url.searchParams.get('requesterDiscordId');
     let requesterIsAdminOnDiscord = false;
     if (requesterDiscordId) {
@@ -46,7 +48,7 @@ export async function GET({ url, request, cookies }) {
         requesterIsAdminOnDiscord = adminProfiles.length > 0;
     }
 
-    // Evaluate privacy clearance
+    /** Evaluate privacy clearance */
     if (targetUser.privacy === 'PUBLIC' || isAdmin || (isAuthorizedBot && requesterIsAdminOnDiscord)) {
         let hue = 'Clear';
         let status = 'Optimal Citizen';

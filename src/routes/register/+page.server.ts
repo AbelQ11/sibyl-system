@@ -8,7 +8,7 @@ export const actions = {
     const username = data.get('username') as string;
     const password = data.get('password') as string;
 
-    // Validate password strength: length 8-30, has uppercase, lowercase, and digit
+    /** Validate password strength: length 8-30, has uppercase, lowercase, and digit */
     const isLengthValid = password && password.length >= 8 && password.length <= 30;
     const hasUpper = /[A-Z]/.test(password);
     const hasLower = /[a-z]/.test(password);

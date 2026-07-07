@@ -7,7 +7,7 @@ export async function GET({ url }) {
     const origin = env_public.PUBLIC_ORIGIN || url.origin;
     const redirectUri = `${origin}/auth/callback/discord`;
     
-    // If no client credentials exist in environment variables, redirect to mock view
+    /** If no client credentials exist in environment variables, redirect to mock view */
     if (!clientId) {
         throw redirect(302, `/auth/mock-discord?redirect_uri=${encodeURIComponent(redirectUri)}`);
     }

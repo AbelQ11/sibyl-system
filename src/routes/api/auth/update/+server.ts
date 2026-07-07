@@ -22,7 +22,7 @@ export async function POST({ request }) {
         }
 
         if (newPassword && newPassword.trim() !== '') {
-            // Validate password strength: length 8-30, has uppercase, lowercase, and digit
+            /** Validate password strength: length 8-30, has uppercase, lowercase, and digit */
             const isLengthValid = newPassword.length >= 8 && newPassword.length <= 30;
             const hasUpper = /[A-Z]/.test(newPassword);
             const hasLower = /[a-z]/.test(newPassword);

@@ -51,13 +51,6 @@
             dataCollapsed = isMobile;
         }
 
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
-        } catch (e) {
-            console.error("Camera access denied or not found", e);
-        }
-
         if ($appMode === 'RESULTS') {
             liveCCDisplay = $crimeCoefficient.toString();
             liveEmotion = getDiagVal('EMOTION', $crimeCoefficient);
@@ -67,9 +60,30 @@
 
         if ($autoStartScan) {
             autoStartScan.set(false);
-            runMockScan();
+            promptCameraScan();
         }
     });
+
+    let showPrivacyModal = false;
+
+    function promptCameraScan() {
+        showPrivacyModal = true;
+    }
+
+    async function acceptPrivacy() {
+        showPrivacyModal = false;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoElement) videoElement.srcObject = stream;
+        } catch (e) {
+            console.error("Camera access denied or not found", e);
+        }
+        runMockScan();
+    }
+
+    function refusePrivacy() {
+        showPrivacyModal = false;
+    }
 
     async function runMockScan() {
         scanning = true;
@@ -139,11 +153,11 @@
         }
 
         if ($appMode === 'INITIAL') {
-            if (key === 'C') {
+            if (key === 'C' && !showPrivacyModal) {
                 event.preventDefault();
-                runMockScan();
+                promptCameraScan();
             }
-            if (key === 'M') {
+            if (key === 'M' && !showPrivacyModal) {
                 event.preventDefault();
                 triggerManualTextScan();
             }
@@ -251,11 +265,19 @@
         </div>
 
         <div class="action-buttons">
-            {#if $appMode === 'INITIAL'}
+            {#if showPrivacyModal}
+                <div class="intervention-box" transition:fade>
+                    <h3 class="warning-text">{$dictionary[$locale].CAMERA_PRIVACY_TEXT}</h3>
+                    <div class="options-row">
+                        <button class="warning-border" on:click={acceptPrivacy}>{$dictionary[$locale].CAMERA_PRIVACY_ACCEPT}</button>
+                        <button on:click={refusePrivacy}>{$dictionary[$locale].CAMERA_PRIVACY_REFUSE}</button>
+                    </div>
+                </div>
+            {:else if $appMode === 'INITIAL'}
                 <div class="intervention-box" transition:fade>
                     <h3 class="warning-text">{$dictionary[$locale].HUD_INTAKE_NODE}</h3>
                     <div class="options-row">
-                        <button on:click={runMockScan}>{$dictionary[$locale].HUD_BTN_CAMERA}</button>
+                        <button on:click={promptCameraScan}>{$dictionary[$locale].HUD_BTN_CAMERA}</button>
                         <button on:click={triggerManualTextScan}>{$dictionary[$locale].HUD_BTN_TEXT}</button>
                     </div>
                 </div>

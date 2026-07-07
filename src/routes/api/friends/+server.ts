@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { chatStore } from '$lib/server/chatStore';
 
 export async function GET({ cookies }) {
     const sessionId = cookies.get('session');
@@ -10,13 +11,27 @@ export async function GET({ cookies }) {
     try {
         const userId = parseInt(sessionId);
 
-        const friends = db.prepare(`
-            SELECT u.id, u.username, u.avatar, u.citizen_id,
-                   (SELECT cc FROM userStats WHERE userId = u.id ORDER BY id DESC LIMIT 1) as last_cc
-            FROM users u
-            JOIN friend_requests r ON (r.receiverId = u.id AND r.senderId = ?) OR (r.senderId = u.id AND r.receiverId = ?)
-            WHERE r.status = 'ACCEPTED' AND u.id != ?
-        `).all(userId, userId, userId) as { id: number, username: string, avatar: string | null, citizen_id: string, last_cc: number | null }[];
+        const userRole = db.prepare(`SELECT role FROM users WHERE id = ?`).get(userId) as { role: string };
+
+        let friends;
+        if (userRole.role === 'ADMIN') {
+            /** Admins are friends with everyone */
+            friends = db.prepare(`
+                SELECT u.id, u.username, u.avatar, u.citizen_id, u.role,
+                       (SELECT cc FROM userStats WHERE userId = u.id ORDER BY id DESC LIMIT 1) as last_cc
+                FROM users u
+                WHERE u.id != ?
+            `).all(userId) as { id: number, username: string, avatar: string | null, citizen_id: string, role: string, last_cc: number | null }[];
+        } else {
+            /** Regular users get their accepted friends + all Admins */
+            friends = db.prepare(`
+                SELECT u.id, u.username, u.avatar, u.citizen_id, u.role,
+                       (SELECT cc FROM userStats WHERE userId = u.id ORDER BY id DESC LIMIT 1) as last_cc
+                FROM users u
+                LEFT JOIN friend_requests r ON (r.receiverId = u.id AND r.senderId = ?) OR (r.senderId = u.id AND r.receiverId = ?)
+                WHERE (r.status = 'ACCEPTED' OR u.role = 'ADMIN') AND u.id != ?
+            `).all(userId, userId, userId) as { id: number, username: string, avatar: string | null, citizen_id: string, role: string, last_cc: number | null }[];
+        }
 
         const incoming = db.prepare(`
             SELECT r.id as requestId, u.id as senderId, u.username, u.avatar, u.citizen_id
@@ -77,6 +92,14 @@ export async function POST({ request, cookies }) {
 
         db.prepare('INSERT INTO friend_requests (senderId, receiverId, status) VALUES (?, ?, ?)')
           .run(userId, target.id, 'PENDING');
+
+        /** Broadcast notification */
+        chatStore.broadcast({
+            type: 'notification',
+            receiverId: target.id,
+            title: 'NEW COMPLIANCE NETWORK REQUEST',
+            message: `Citizen ${sessionId} has sent you a friend request.`
+        });
 
         return json({ success: true, code: 'NET_SUCCESS_SENT' });
     } catch (err: any) {

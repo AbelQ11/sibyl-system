@@ -12,7 +12,7 @@ export async function GET({ url, cookies }) {
     try {
         const userId = parseInt(sessionId);
 
-        // Fetch users matching query (excluding current user) joined with active/pending request status
+        /** Fetch users matching query (excluding current user) joined with active/pending request status */
         const users = db.prepare(`
             SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy,
                    r.id as requestId, r.status as requestStatus, r.senderId as requestSenderId

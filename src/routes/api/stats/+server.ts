@@ -27,7 +27,7 @@ export async function GET({ url, cookies }) {
             });
         }
 
-        // Security check: Must respect privacy settings (PRIVATE, FRIENDS, PUBLIC) unless the requester is an admin
+        /** Security check: Must respect privacy settings (PRIVATE, FRIENDS, PUBLIC) unless the requester is an admin */
         const requester = db.prepare('SELECT role FROM users WHERE id = ?').get(loggedInId) as { role: string } | undefined;
         const isAdmin = requester?.role === 'ADMIN';
 
@@ -45,8 +45,20 @@ export async function GET({ url, cookies }) {
                     )
                 `).get(loggedInId, userRow.id, userRow.id, loggedInId);
 
-                if (!isFriend) {
-                    return json({ error: 'Access Denied: Compliance sync link not established' }, { status: 403 });
+                const sharesGroup = db.prepare(`
+                    SELECT 1 FROM chat_group_members c1
+                    JOIN chat_group_members c2 ON c1.groupId = c2.groupId
+                    WHERE c1.userId = ? AND c2.userId = ?
+                `).get(loggedInId, userRow.id);
+
+                let allowed = false;
+
+                if (targetPrivacy === 'FRIENDS' && isFriend) allowed = true;
+                if (targetPrivacy === 'GROUP ONLY' && sharesGroup) allowed = true;
+                if (targetPrivacy === 'FRIENDS AND GROUP ONLY' && (isFriend || sharesGroup)) allowed = true;
+
+                if (!allowed) {
+                    return json({ error: 'Access Denied: Privacy requirements not met' }, { status: 403 });
                 }
             }
         }

@@ -9,7 +9,8 @@ const config = {
 		alias: {
 			'$components': 'src/lib/components',
 			'$lib': 'src/lib'
-		}
+		},
+		inlineStyleThreshold: 102400 // Inline styles up to 100kb to prevent Firefox Ctrl+F5 FOUC
 	}
 };
 

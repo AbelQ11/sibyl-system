@@ -25,6 +25,11 @@
     
     let history: ScanData[] = [];
 
+    let activeTab: 'DOSSIER' | 'SURVEILLANCE' = 'DOSSIER';
+    let surveillanceData: any[] = [];
+    let activeSurveillanceContact: number | null = null;
+    let isAdmin = false;
+
     onMount(async () => {
         try {
             const res = await fetch(`/api/stats?userId=${username}`);
@@ -39,6 +44,16 @@
             } else if (res.status === 403) {
                 unauthorized = true;
             }
+            
+            /** Attempt surveillance fetch (will only succeed if admin) */
+            if (!unauthorized) {
+                const survRes = await fetch(`/api/admin/surveillance?username=${username}`);
+                if (survRes.ok) {
+                    const survData = await survRes.json();
+                    surveillanceData = survData.conversations || [];
+                    isAdmin = true;
+                }
+            }
         } catch (err) {
             console.error('Failed to retrieve citizen logs:', err);
         } finally {
@@ -49,7 +64,8 @@
     function formatFullDate(dateStr: string) {
         if (!dateStr) return '';
         try {
-            const date = new Date(dateStr);
+            const utcDateStr = dateStr.replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z');
+            const date = new Date(utcDateStr);
             return date.toLocaleString();
         } catch (e) {
             return dateStr;
@@ -117,10 +133,20 @@
         </div>
     {:else}
         <div class="main-card card-border">
-            <h1 class="header">{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {username.toUpperCase()}</h1>
+            <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin-bottom: 15px;">
+                <h1 class="header" style="border: none; padding: 0; margin: 0;">{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {username.toUpperCase()}</h1>
+                {#if isAdmin}
+                    <div class="profile-tabs" style="display: flex; gap: 10px;">
+                        <button class="tab-btn {activeTab === 'DOSSIER' ? 'active' : ''}" on:click={() => activeTab = 'DOSSIER'}>[ DOSSIER ]</button>
+                        <button class="tab-btn {activeTab === 'SURVEILLANCE' ? 'active' : ''}" on:click={() => activeTab = 'SURVEILLANCE'}>[ SURVEILLANCE ]</button>
+                    </div>
+                {/if}
+            </div>
+
             <div class="security-level">{$dictionary[$locale].CITIZEN_PROFILE_STATUS}</div>
 
-            <div class="subject-info">
+            {#if activeTab === 'DOSSIER'}
+                <div class="subject-info">
                 <span>{$dictionary[$locale].TRENDS_SUBJECT_ID}: {username.toUpperCase()} ({citizenId || 'SIB-UNKNOWN'})</span>
                 <span>{$dictionary[$locale].TRENDS_SYSTEM_STATUS}: {$dictionary[$locale].TRENDS_STATUS_CONNECTED}</span>
             </div>
@@ -201,8 +227,52 @@
                     </div>
                 </div>
             {/if}
+            
+            {:else if activeTab === 'SURVEILLANCE'}
+                <div class="surveillance-container" style="display: flex; gap: 20px; height: 100%;">
+                    <div class="surveillance-sidebar card-border" style="width: 250px; background: #050505; display: flex; flex-direction: column;">
+                        <h2 class="sub-header" style="margin: 15px;">// CONTACTS</h2>
+                        <div class="contacts-list" style="flex: 1; overflow-y: auto;">
+                            {#if surveillanceData.length === 0}
+                                <div style="padding: 15px; font-size: 0.8rem; color: #666; font-style: italic;">NO PRIVATE COMMS DETECTED</div>
+                            {/if}
+                            {#each surveillanceData as conv}
+                                <button 
+                                    class="contact-btn {activeSurveillanceContact === conv.otherUserId ? 'active' : ''}" 
+                                    on:click={() => activeSurveillanceContact = conv.otherUserId}
+                                    style="width: 100%; text-align: left; padding: 15px; background: transparent; border: none; border-bottom: 1px solid rgba(0,255,204,0.1); color: {activeSurveillanceContact === conv.otherUserId ? '#000' : '#00ffcc'}; background-color: {activeSurveillanceContact === conv.otherUserId ? '#00ffcc' : 'transparent'}; cursor: pointer; font-family: inherit; font-size: 0.9rem;"
+                                >
+                                    > {conv.otherUsername.toUpperCase()}
+                                </button>
+                            {/each}
+                        </div>
+                    </div>
+                    
+                    <div class="surveillance-chat card-border" style="flex: 1; background: #050505; display: flex; flex-direction: column; position: relative;">
+                        {#if activeSurveillanceContact !== null}
+                            {@const activeConv = surveillanceData.find(c => c.otherUserId === activeSurveillanceContact)}
+                            <h2 class="sub-header" style="margin: 15px;">// INTERCEPTED CHAT: {username.toUpperCase()} &lt;-&gt; {activeConv.otherUsername.toUpperCase()}</h2>
+                            
+                            <div class="chat-history" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+                                {#each activeConv.messages as msg}
+                                    <div style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 5px;">
+                                        <div style="font-weight: bold; color: {msg.senderId === activeSurveillanceContact ? '#ffaa00' : '#00ffcc'};">
+                                            [{formatFullDate(msg.created_at)}] {msg.senderName.toUpperCase()}:
+                                        </div>
+                                        <div style="padding-left: 10px; color: #fff;">{msg.text}</div>
+                                    </div>
+                                {/each}
+                            </div>
+                        {:else}
+                            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(0,255,204,0.3); letter-spacing: 2px;">
+                                SELECT A CONTACT TO MONITOR
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
 
-            <button class="return-btn" on:click={() => goto('/friends')}>
+            <button class="return-btn" style="margin-top: 25px;" on:click={() => goto('/friends')}>
                 {$dictionary[$locale].CITIZEN_RETURN_BTN}
             </button>
 
@@ -303,4 +373,8 @@
     .erase-data:hover { background: #ffaa00; color: #000; box-shadow: 0 0 10px #ffaa00; }
     .erase-account { border-color: #ff3333; color: #ff3333; background: transparent; }
     .erase-account:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
+    
+    .tab-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 15px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
+    .tab-btn:hover { background: rgba(0, 255, 204, 0.1); box-shadow: 0 0 10px #00ffcc; }
+    .tab-btn.active { background: #00ffcc; color: #000; }
 </style>

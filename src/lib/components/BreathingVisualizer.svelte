@@ -22,14 +22,7 @@
     let currentCycle = 0;
 
     onMount(() => {
-        (async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                videoElement.srcObject = stream;
-            } catch (e) {
-                console.error("Camera access denied or not found in breathing visualizer", e);
-            }
-        })();
+        /** Camera feed removed from Breathing Visualizer to respect privacy flow */
 
         setTimeout(() => {
             isInitialized = true;
@@ -58,13 +51,13 @@
                 }
             }
 
-            // Smooth CC decrease
+            /** Smooth CC decrease */
             const elapsedSeconds = currentCycle * phaseTime * 3 + timer;
             if (ccDropPerSecond > 0) {
                 displayCC = Math.max(targetCC, Math.floor(startCC - elapsedSeconds * ccDropPerSecond));
             }
 
-            // Telemetry updates
+            /** Telemetry updates */
             const progress = elapsedSeconds / totalDurationSeconds;
             livePulse = Math.max(62, Math.floor(84 - progress * 20 + Math.random() * 2 - 1));
             liveOxygen = Math.min(99, Math.floor(96 + progress * 3));

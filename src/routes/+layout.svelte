@@ -1,9 +1,10 @@
 <script lang="ts">
-    import { currentUser, userAvatar, appMode } from '$lib/stores';
+    import { currentUser, userAvatar, appMode, globalNotificationsEnabled, latestSSEEvent } from '$lib/stores';
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import { locale, dictionary } from '$lib/i18n';
     import { fade } from 'svelte/transition';
+    import { onMount, onDestroy } from 'svelte';
 
     export let data;
 
@@ -43,6 +44,89 @@
     function toggleLanguage() {
         locale.update(l => l === 'EN' ? 'FR' : 'EN');
     }
+
+    let eventSource: EventSource;
+
+    onMount(() => {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+            if (localStorage.getItem('sibyl_notifications') === 'true' && Notification.permission === 'granted') {
+                globalNotificationsEnabled.set(true);
+            }
+        }
+
+        if (data?.user) {
+            eventSource = new EventSource('/api/chat/stream');
+            eventSource.onmessage = (event) => {
+                const eventData = JSON.parse(event.data);
+                latestSSEEvent.set(eventData);
+
+                if (eventData.type === 'message') {
+                    /** Determine if the user is actively viewing this specific discussion */
+                    let isViewingDiscussion = false;
+                    if (document.hasFocus() && window.location.pathname.startsWith('/chat')) {
+                        const url = new URL(window.location.href);
+                        if (eventData.message.targetType === 'GROUP' && url.searchParams.get('group') === String(eventData.message.groupId)) {
+                            isViewingDiscussion = true;
+                        } else if (eventData.message.targetType === 'PRIVATE' && url.searchParams.get('private') === String(eventData.message.senderId)) {
+                            isViewingDiscussion = true;
+                        } else if (eventData.message.targetType === 'PUBLIC' && !url.searchParams.get('group') && !url.searchParams.get('private')) {
+                            isViewingDiscussion = true;
+                        }
+                    }
+
+                    if ($globalNotificationsEnabled && eventData.message.senderId !== data.user.id && !isViewingDiscussion) {
+                        let link = '/chat';
+                        if (eventData.message.targetType === 'GROUP') {
+                            link = `/chat?group=${eventData.message.groupId}`;
+                        } else if (eventData.message.targetType === 'PRIVATE') {
+                            link = `/chat?private=${eventData.message.senderId}`;
+                        }
+                        
+                        createNotification(
+                            "SIBYL COMMS", 
+                            `${eventData.message.senderName}: ${eventData.message.isReadOnce ? '[ENCRYPTED]' : eventData.message.text}`,
+                            eventData.message.senderAvatar,
+                            link
+                        );
+                    }
+                } else if (eventData.type === 'notification') {
+                    if ($globalNotificationsEnabled && eventData.receiverId === data.user.id) {
+                        createNotification(eventData.title || "SIBYL SYSTEM", eventData.message, null, eventData.link || null);
+                    }
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error("Global SSE Error:", error);
+            };
+        }
+    });
+
+    function createNotification(title: string, body: string, icon?: string | null, link?: string | null) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            const options: any = { body };
+            if (icon) {
+                options.icon = icon.startsWith('http') || icon.startsWith('data:') 
+                    ? icon 
+                    : new URL(icon, window.location.origin).href;
+            }
+            const n = new Notification(title, options);
+            n.onclick = () => {
+                window.focus();
+                n.close();
+                if (link) {
+                    goto(link);
+                }
+            };
+        } catch (e) {
+            console.error("Notification error:", e);
+        }
+    }
+
+    onDestroy(() => {
+        if (eventSource) eventSource.close();
+    });
 </script>
 
 <div class="app-wrapper">
@@ -56,6 +140,9 @@
                 SIBYL_SYS
             </div>
             <div class="nav-links">
+                <a href="/chat" class="nav-btn-link">
+                    {$dictionary[$locale].NAV_CHAT || '[ PUBLIC COMM ]'}
+                </a>
                 <a href="/privacy" class="nav-btn-link">
                     {$dictionary[$locale].NAV_PRIVACY || '[ PRIVACY ]'}
                 </a>
@@ -102,7 +189,10 @@
             <div class="burger-menu-content">
                 <div class="burger-logo">SIBYL SYSTEM MODULES</div>
                 
-                <a href="/privacy" class="burger-link">
+                <a href="/chat" class="burger-link" on:click={closeMenu}>
+                    {$dictionary[$locale].NAV_CHAT || 'PUBLIC COMM'}
+                </a>
+                <a href="/privacy" class="burger-link" on:click={closeMenu}>
                     {$dictionary[$locale].NAV_PRIVACY || 'PRIVACY POLICY'}
                 </a>
                 <a href="/terms" class="burger-link">

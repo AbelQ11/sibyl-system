@@ -1,6 +1,8 @@
 import { Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import dotenv from 'dotenv';
 import path from 'path';
+import express from 'express';
+import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
@@ -18,9 +20,107 @@ if (!token || token === 'your_bot_token_here') {
     process.exit(1);
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+] });
+const app = express();
 
-client.once('ready', () => {
+
+
+app.use(cors());
+app.use(express.json());
+
+app.post('/webhook', async (req, res) => {
+    if (req.headers.authorization !== `Bearer ${botSecret}`) {
+        return res.status(401).send('Unauthorized');
+    }
+    
+    const { action, payload } = req.body;
+    
+    try {
+        if (action === 'GLOBAL_ANNOUNCEMENT') {
+            const guild = client.guilds.cache.first();
+            if (guild) {
+                const channel = guild.channels.cache.find(c => c.name === 'general' || c.name === 'announcements') || guild.systemChannel;
+                if (channel) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('⚠️ **GLOBAL SIBYL ANNOUNCEMENT** ⚠️')
+                        .setDescription(payload.text)
+                        .setColor(0xff3333)
+                        .setTimestamp()
+                        .setFooter({ text: 'SIBYL SYSTEM • Core Compliance Network Node' });
+                    
+                    await channel.send({ embeds: [embed] });
+                }
+            }
+        } else if (action === 'CREATE_GROUP') {
+            const guild = client.guilds.cache.first();
+            if (guild) {
+                const role = await guild.roles.create({
+                    name: `Division: ${payload.name}`,
+                    color: 0x00ffcc,
+                    reason: 'SIBYL SYSTEM Group Creation'
+                });
+                const channel = await guild.channels.create({
+                    name: `div-${payload.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                    type: 0,
+                    permissionOverwrites: [
+                        {
+                            id: guild.roles.everyone.id,
+                            deny: ['ViewChannel']
+                        },
+                        {
+                            id: role.id,
+                            allow: ['ViewChannel']
+                        }
+                    ],
+                    reason: 'SIBYL SYSTEM Group Creation'
+                });
+                
+                return res.json({ success: true, roleId: role.id, channelId: channel.id });
+            }
+        } else if (action === 'THREAT_ALERT') {
+            const guild = client.guilds.cache.first();
+            if (guild) {
+                const channel = guild.channels.cache.find(c => c.name === 'general' || c.name === 'announcements') || guild.systemChannel;
+                if (channel) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('[SIBYL SYSTEM - THREAT ALERT]')
+                        .setDescription(`Citizen **${payload.username}** has exceeded acceptable Crime Coefficient limits (CC: **${payload.cc}**).`)
+                        .setColor(0xff3333)
+                        .setTimestamp()
+                        .setFooter({ text: 'SIBYL SYSTEM • Core Compliance Network Node' });
+                    
+                    await channel.send({ embeds: [embed] });
+                }
+            }
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Webhook error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+const server = app.listen(3005, () => {
+    console.log(`[SIBYL BOT API]: Listening for webhooks on port 3005`);
+});
+
+server.on('error', (err) => {
+    console.error('[FATAL] Express Server Error:', err);
+});
+
+client.once('clientReady', () => {
     console.log(`[SIBYL BOT ACTIVE]: Logged in as ${client.user.tag}`);
 });
 

@@ -96,9 +96,11 @@
     }
 
     function getPrivacyLabel(privacy: string) {
-        if (privacy === 'PRIVATE') return $dictionary[$locale].ACC_PRIVACY_PRIVATE;
-        if (privacy === 'FRIENDS') return $dictionary[$locale].ACC_PRIVACY_FRIENDS;
-        return $dictionary[$locale].ACC_PRIVACY_PUBLIC;
+        if (privacy === 'PRIVATE') return $dictionary[$locale].ACC_PRIVACY_PRIVATE || 'PRIVATE';
+        if (privacy === 'FRIENDS') return $dictionary[$locale].ACC_PRIVACY_FRIENDS || 'FRIENDS';
+        if (privacy === 'GROUP ONLY') return 'GROUP ONLY';
+        if (privacy === 'FRIENDS AND GROUP ONLY') return 'FRIENDS/GROUP ONLY';
+        return $dictionary[$locale].ACC_PRIVACY_PUBLIC || 'PUBLIC';
     }
 </script>
 
@@ -230,7 +232,7 @@
             {/if}
         </div>
 
-        <button class="return-btn" on:click={() => goto('/friends')}>
+        <button class="return-btn" on:click={() => goto('/account')}>
             {$dictionary[$locale].COM_RETURN_BTN}
         </button>
     </div>
@@ -275,7 +277,7 @@
 
     .privacy-badge { font-size: 0.75rem; padding: 2px 6px; border: 1px solid; text-transform: uppercase; font-weight: bold; }
     .privacy-badge.PUBLIC { border-color: #00ffcc; color: #00ffcc; background: rgba(0, 255, 204, 0.05); }
-    .privacy-badge.FRIENDS { border-color: #ffaa00; color: #ffaa00; background: rgba(255, 170, 0, 0.05); }
+    .privacy-badge.FRIENDS, .privacy-badge.\GROUP\ ONLY, .privacy-badge.\FRIENDS\ AND\ GROUP\ ONLY { border-color: #ffaa00; color: #ffaa00; background: rgba(255, 170, 0, 0.05); }
     .privacy-badge.PRIVATE { border-color: #ff3333; color: #ff3333; background: rgba(255, 51, 51, 0.05); }
 
     .action-cell { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
