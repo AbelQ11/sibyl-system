@@ -1,8 +1,6 @@
 import { Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import dotenv from 'dotenv';
 import path from 'path';
-import express from 'express';
-import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
@@ -25,99 +23,12 @@ const client = new Client({ intents: [
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
 ] });
-const app = express();
-
-
-
-app.use(cors());
-app.use(express.json());
-
-app.post('/webhook', async (req, res) => {
-    if (req.headers.authorization !== `Bearer ${botSecret}`) {
-        return res.status(401).send('Unauthorized');
-    }
-    
-    const { action, payload } = req.body;
-    
-    try {
-        if (action === 'GLOBAL_ANNOUNCEMENT') {
-            const guild = client.guilds.cache.first();
-            if (guild) {
-                const channel = guild.channels.cache.find(c => c.name === 'general' || c.name === 'announcements') || guild.systemChannel;
-                if (channel) {
-                    const embed = new EmbedBuilder()
-                        .setTitle('⚠️ **GLOBAL SIBYL ANNOUNCEMENT** ⚠️')
-                        .setDescription(payload.text)
-                        .setColor(0xff3333)
-                        .setTimestamp()
-                        .setFooter({ text: 'SIBYL SYSTEM • Core Compliance Network Node' });
-                    
-                    await channel.send({ embeds: [embed] });
-                }
-            }
-        } else if (action === 'CREATE_GROUP') {
-            const guild = client.guilds.cache.first();
-            if (guild) {
-                const role = await guild.roles.create({
-                    name: `Division: ${payload.name}`,
-                    color: 0x00ffcc,
-                    reason: 'SIBYL SYSTEM Group Creation'
-                });
-                const channel = await guild.channels.create({
-                    name: `div-${payload.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-                    type: 0,
-                    permissionOverwrites: [
-                        {
-                            id: guild.roles.everyone.id,
-                            deny: ['ViewChannel']
-                        },
-                        {
-                            id: role.id,
-                            allow: ['ViewChannel']
-                        }
-                    ],
-                    reason: 'SIBYL SYSTEM Group Creation'
-                });
-                
-                return res.json({ success: true, roleId: role.id, channelId: channel.id });
-            }
-        } else if (action === 'THREAT_ALERT') {
-            const guild = client.guilds.cache.first();
-            if (guild) {
-                const channel = guild.channels.cache.find(c => c.name === 'general' || c.name === 'announcements') || guild.systemChannel;
-                if (channel) {
-                    const embed = new EmbedBuilder()
-                        .setTitle('[SIBYL SYSTEM - THREAT ALERT]')
-                        .setDescription(`Citizen **${payload.username}** has exceeded acceptable Crime Coefficient limits (CC: **${payload.cc}**).`)
-                        .setColor(0xff3333)
-                        .setTimestamp()
-                        .setFooter({ text: 'SIBYL SYSTEM • Core Compliance Network Node' });
-                    
-                    await channel.send({ embeds: [embed] });
-                }
-            }
-        }
-        res.json({ success: true });
-    } catch (e) {
-        console.error('Webhook error:', e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
 process.on('uncaughtException', (err) => {
     console.error('[FATAL] Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-const server = app.listen(3005, () => {
-    console.log(`[SIBYL BOT API]: Listening for webhooks on port 3005`);
-});
-
-server.on('error', (err) => {
-    console.error('[FATAL] Express Server Error:', err);
 });
 
 client.once('clientReady', () => {
@@ -427,6 +338,101 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp()
                 .setFooter({ text: 'SIBYL SYSTEM • Hardware Node Error' });
             await interaction.editReply({ embeds: [errEmbed] });
+        }
+    } else if (commandName === 'status') {
+        await interaction.deferReply();
+        try {
+            const endpoint = `${publicOrigin.replace(/\/$/, '')}/api/discord/status`;
+            const response = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${botSecret}` }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            let color = 0x00ffcc;
+            if (data.threat_level === 'Critical') color = 0xff3333;
+            else if (data.threat_level === 'Warning') color = 0xffaa00;
+
+            const embed = new EmbedBuilder()
+                .setTitle('[SIBYL SYSTEM - GLOBAL THREAT STATUS]')
+                .setDescription('Current cognitive diagnostic average across all registered citizens.')
+                .setColor(color)
+                .addFields(
+                    { name: 'Average Crime Coefficient', value: `\`${data.average_cc}\``, inline: true },
+                    { name: 'Threat Level', value: `**${data.threat_level}**`, inline: true },
+                    { name: 'Registered Citizens', value: `\`${data.citizen_count}\``, inline: true }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'SIBYL SYSTEM • Core Compliance Network Node' });
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('Status check failure:', err);
+            await interaction.editReply('Error checking SIBYL status.');
+        }
+    } else if (commandName === 'history') {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+            const endpoint = `${publicOrigin.replace(/\/$/, '')}/api/discord/history?discordId=${interaction.user.id}`;
+            const response = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${botSecret}` }
+            });
+            const data = await response.json();
+            
+            if (response.status === 404 && data.error === 'UNLINKED') {
+                return await interaction.editReply('Your Discord account is not linked to any SIBYL profile. Please link it in your website account settings.');
+            }
+            if (!response.ok) throw new Error(data.error || 'Server error');
+
+            let desc = data.history.map((h, i) => {
+                let d = h.created_at;
+                if (!d.includes('Z')) d = d.replace(' ', 'T') + 'Z';
+                return `**${i+1}.** CC: \`${h.cc}\` - <t:${Math.floor(new Date(d).getTime() / 1000)}:R>`;
+            }).join('\n');
+            if (!desc) desc = 'No telemetry data recorded yet.';
+
+            const embed = new EmbedBuilder()
+                .setTitle(`[SIBYL SYSTEM - PERSONAL TELEMETRY LOG]`)
+                .setDescription(`Recent CC fluctuations for **${data.username}**:\n\n${desc}`)
+                .setColor(0x00ffcc)
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('History check failure:', err);
+            await interaction.editReply('Error retrieving your history log.');
+        }
+    } else if (commandName === 'division') {
+        const query = interaction.options.getString('query');
+        await interaction.deferReply();
+        try {
+            const endpoint = `${publicOrigin.replace(/\/$/, '')}/api/discord/division?query=${encodeURIComponent(query)}`;
+            const response = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${botSecret}` }
+            });
+            const data = await response.json();
+            
+            if (response.status === 404 && data.error === 'NOT_FOUND') {
+                return await interaction.editReply(`Division \`${query}\` not found in the SIBYL registry.`);
+            }
+            if (!response.ok) throw new Error(data.error || 'Server error');
+
+            const embed = new EmbedBuilder()
+                .setTitle(`[SIBYL SYSTEM - DIVISION REGISTRY]`)
+                .setDescription(`Division: **${data.name}**`)
+                .setColor(0x00ffcc)
+                .addFields(
+                    { name: 'Member Count', value: `\`${data.memberCount}\``, inline: true },
+                    { name: 'Average CC', value: `\`${data.averageCC}\``, inline: true },
+                    { name: 'Max CC Threshold', value: `\`${data.maxCC}\``, inline: true }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'SIBYL SYSTEM • Division Records' });
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('Division query failure:', err);
+            await interaction.editReply('Error querying division data.');
         }
     }
 });

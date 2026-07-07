@@ -62,22 +62,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             /** Add creator as CITIZEN (they are implicitly Inspector via the inspectorId field) */
             db.prepare(`INSERT INTO chat_group_members (groupId, userId, role) VALUES (?, ?, 'CITIZEN')`).run(groupId, user.id);
 
-            /** Webhook to create Discord role & channel */
-            try {
-                fetch('http://127.0.0.1:3005/webhook', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.SIB_BOT_SECRET}`
-                    },
-                    body: JSON.stringify({
-                        action: 'CREATE_GROUP',
-                        payload: { name }
-                    })
-                }).catch(console.error);
-            } catch (e) {
-                console.error("Webhook failed:", e);
-            }
+            /** Webhook to Discord Bot removed. */
 
             return json({ success: true, groupId, name, maxCC });
         } 

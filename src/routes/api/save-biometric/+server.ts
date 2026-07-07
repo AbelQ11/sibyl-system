@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { triggerDiscordWebhook } from '$lib/server/webhook';
 
 export async function POST({ request }) {
     try {
@@ -18,14 +17,7 @@ export async function POST({ request }) {
 
         db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'biometric')").run(userRow.id, cc);
 
-        try {
-            const user = db.prepare('SELECT username, citizen_id, privacy, discord_id FROM users WHERE id = ?').get(userRow.id) as { username: string, citizen_id: string, privacy: string, discord_id: string | null } | undefined;
-            if (user) {
-                await triggerDiscordWebhook(user.username, user.citizen_id, cc, user.privacy, user.discord_id);
-            }
-        } catch (webhookErr: any) {
-            console.error('Failed to trigger Discord webhook:', webhookErr.message);
-        }
+        /** Discord webhook integration removed. */
 
         return json({ success: true });
     } catch (err: any) {

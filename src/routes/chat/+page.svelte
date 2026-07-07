@@ -23,6 +23,17 @@
     
     /** For editing messages */
     let editingMessageId: number | null = null;
+    let replyingToMessage: any = null;
+    let attachmentBase64: string | null = null;
+    let attachmentInput: HTMLInputElement;
+    let moderationPopupVisible = false;
+    let moderationPenaltyStr = '';
+
+    function showModerationPopup(penaltyText: string) {
+        moderationPenaltyStr = penaltyText;
+        moderationPopupVisible = true;
+        setTimeout(() => moderationPopupVisible = false, 5000);
+    }
 
     $: {
         const privateId = $page.url.searchParams.get('private');
@@ -97,9 +108,40 @@
         } else if (eventData.type === 'message_edited') {
             const idx = messages.findIndex(m => m.id === eventData.message.id);
             if (idx !== -1) {
-                messages[idx] = eventData.message;
+                messages[idx] = { ...messages[idx], ...eventData.message };
+                if (eventData.message.text && eventData.message.text.includes('[REDACTED BY SIBYL SYSTEM')) {
+                    const match = eventData.message.text.match(/CC PENALTY: \+(\d+)/);
+                    showModerationPopup(match ? `+${match[1]}` : 'Unknown');
+                }
+            }
+        } else if (eventData.type === 'reaction') {
+            const idx = messages.findIndex(m => m.id === eventData.messageId);
+            if (idx !== -1) {
+                messages[idx].reactions = eventData.reactions;
+                messages = [...messages];
             }
         }
+    }
+
+    async function toggleReaction(messageId: number, emoji: string) {
+        try {
+            await fetch('/api/chat/react', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messageId, emoji })
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function groupReactions(reactions: any[]) {
+        if (!reactions) return {};
+        return reactions.reduce((acc, r) => {
+            if (!acc[r.emoji]) acc[r.emoji] = [];
+            acc[r.emoji].push(r.userId);
+            return acc;
+        }, {} as Record<string, number[]>);
     }
 
     async function toggleNotifications() {
@@ -162,7 +204,9 @@
                     text: inputText,
                     targetType: currentTab,
                     targetId: targetId,
-                    isReadOnce
+                    isReadOnce,
+                    replyToId: replyingToMessage ? replyingToMessage.id : null,
+                    attachment: attachmentBase64
                 })
             });
 
@@ -171,6 +215,9 @@
                 alert(d.error || 'Failed to send message');
             } else {
                 inputText = '';
+                replyingToMessage = null;
+                attachmentBase64 = null;
+                if (attachmentInput) attachmentInput.value = '';
                 /** read-once stays toggled according to the user's preference for multiple messages */
             }
         } catch (e) {
@@ -294,6 +341,17 @@
             </h2>
             
             <div class="header-actions" style="display: flex; gap: 10px;">
+                {#if $globalNotificationsEnabled === null}
+                    <button class="sys-btn" on:click={toggleNotifications}>ENABLE DESKTOP ALERTS</button>
+                {/if}
+
+                {#if moderationPopupVisible}
+                    <div class="moderation-popup" transition:fade>
+                        [ SIBYL SYSTEM NOTIFICATION ]<br>
+                        A transmission has been redacted due to Psycho-Pass clouding. CC penalty applied: <span style="color: #ffaa00;">{moderationPenaltyStr}</span>
+                    </div>
+                {/if}
+
                 <button class="action-btn" on:click={toggleNotifications} title="Toggle Desktop Notifications">
                     {$globalNotificationsEnabled ? '[ NOTIFS: ON ]' : '[ NOTIFS: OFF ]'}
                 </button>
@@ -330,6 +388,13 @@
                             </span>
                         </div>
                         
+                        {#if msg.replyToMessage}
+                            <div class="reply-block {getHueClass(msg.replyToMessage.senderAvgCC)}">
+                                <span class="reply-sender">@{msg.replyToMessage.senderName}</span>
+                                {msg.replyToMessage.text.substring(0, 50)}{msg.replyToMessage.text.length > 50 ? '...' : ''}
+                            </div>
+                        {/if}
+
                         {#if msg.isReadOnce && !msg.read}
                             <button class="decrypt-btn" on:click={() => decryptMessage(msg.id)}>
                                 <span class="icon-eye">👁</span> [ DECRYPT ]
@@ -338,22 +403,61 @@
                             <div class="message-text {getHueClass(msg.senderCC)}">
                                 {msg.text}
                             </div>
+                            {#if msg.attachment}
+                                <img src={msg.attachment} alt="attachment" class="msg-attachment-img" />
+                            {/if}
+                            <div class="reactions">
+                                {#each Object.entries(groupReactions(msg.reactions)) as [emoji, users]}
+                                    <button class="reaction-pill {users.includes(currentUser?.id) ? 'active' : ''}" on:click={() => toggleReaction(msg.id, emoji)}>
+                                        {emoji} {users.length}
+                                    </button>
+                                {/each}
+                                <div class="add-reaction">
+                                    <button class="mini-btn react-btn" title="Add Reaction">[+]</button>
+                                    <div class="emoji-picker">
+                                        {#each ['👍', '❤️', '💀', '👁️'] as emj}
+                                            <button on:click={() => toggleReaction(msg.id, emj)}>{emj}</button>
+                                        {/each}
+                                        <input type="text" class="custom-emoji-input" maxlength="2" placeholder="..." on:keydown={(e) => {
+                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                toggleReaction(msg.id, e.currentTarget.value.trim());
+                                                e.currentTarget.value = '';
+                                            }
+                                        }} title="Type a custom emoji and press Enter" />
+                                    </div>
+                                </div>
+                            </div>
                         {/if}
                     </div>
 
-                    {#if msg.senderId === currentUser?.id || currentUser?.role === 'ADMIN'}
                         <div class="message-actions">
+                            {#if (!msg.isReadOnce || msg.read)}
+                                <button class="mini-btn reply-btn" title="Reply" on:click={() => replyingToMessage = msg}>[R]</button>
+                            {/if}
                             {#if msg.senderId === currentUser?.id && (!msg.isReadOnce || msg.read)}
                                 <button class="mini-btn edit-btn" title="Edit Message" on:click={() => startEdit(msg)}>[E]</button>
                             {/if}
-                            <button class="mini-btn delete-btn" title="Delete Message" on:click={() => deleteMessage(msg.id)}>[D]</button>
+                            {#if msg.senderId === currentUser?.id || currentUser?.role === 'ADMIN'}
+                                <button class="mini-btn delete-btn" title="Delete Message" on:click={() => deleteMessage(msg.id)}>[D]</button>
+                            {/if}
                         </div>
-                    {/if}
                 </div>
             {/each}
         </div>
 
         <div class="chat-input-area">
+            {#if replyingToMessage}
+                <div class="reply-banner {getHueClass(replyingToMessage.senderCC)}">
+                    REPLYING TO [{replyingToMessage.senderName}]: "{replyingToMessage.text.substring(0, 30)}..." 
+                    <button class="cancel-btn" on:click={() => replyingToMessage = null}>[ CANCEL ]</button>
+                </div>
+            {/if}
+            {#if attachmentBase64}
+                <div class="attachment-preview">
+                    <img src={attachmentBase64} alt="attachment preview" />
+                    <button class="cancel-btn" on:click={() => { attachmentBase64 = null; attachmentInput.value = ''; }}>[ X ]</button>
+                </div>
+            {/if}
             {#if editingMessageId}
                 <div class="editing-banner">
                     EDITING MESSAGE... <button class="cancel-btn" on:click={cancelEdit}>[ CANCEL ]</button>
@@ -374,6 +478,23 @@
                 </button>
                 
                 <div class="input-row">
+                    <input type="file" accept="image/*" bind:this={attachmentInput} style="display:none;" on:change={(e) => {
+                        const target = e.target as HTMLInputElement;
+                        const file = target.files?.[0];
+                        if (file) {
+                            if (file.size > 2 * 1024 * 1024) {
+                                alert("Transmission failed: Image exceeds 2MB limit.");
+                                attachmentInput.value = '';
+                                return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (evt) => attachmentBase64 = evt.target?.result as string;
+                            reader.readAsDataURL(file);
+                        }
+                    }} />
+                    <button class="action-btn attach-btn" on:click={() => attachmentInput.click()} title="Attach Image (Max 2MB)">
+                        [ IMG ]
+                    </button>
                     <input 
                         type="text" 
                         bind:value={inputText} 
@@ -463,6 +584,8 @@
     
     .action-btn { background: transparent; border: 1px solid #ffaa00; color: #ffaa00; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
     .action-btn:hover { background: #ffaa00; color: #000; }
+    .sys-btn { background: transparent; border: 1px solid #ff3333; color: #ff3333; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
+    .sys-btn:hover { background: #ff3333; color: #fff; }
 
     .invite-dropdown {
         position: absolute; right: 0; top: 100%; margin-top: 10px; background: #050505; border: 1px solid #00ffcc; padding: 10px; display: flex; gap: 10px; z-index: 100; box-shadow: 0 0 15px rgba(0,0,0,0.8);
@@ -527,6 +650,36 @@
     .mini-btn { background: transparent; border: none; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: bold; }
     .edit-btn { color: #ffaa00; } .edit-btn:hover { text-shadow: 0 0 8px #ffaa00; }
     .delete-btn { color: #ff3333; } .delete-btn:hover { text-shadow: 0 0 8px #ff3333; }
+    .reply-btn { color: #00ffcc; } .reply-btn:hover { text-shadow: 0 0 8px #00ffcc; }
+    
+    .reply-block { font-size: 0.8rem; border-left: 2px solid; padding-left: 10px; margin-bottom: 5px; opacity: 0.8; font-style: italic; }
+    .reply-sender { font-weight: bold; margin-right: 5px; }
+
+    .reply-banner { font-size: 0.8rem; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border: 1px dashed; padding: 5px 10px; }
+    
+    .attachment-preview { position: relative; display: inline-block; margin-bottom: 10px; border: 1px solid #00ffcc; }
+    .attachment-preview img { max-height: 100px; display: block; }
+    .attachment-preview .cancel-btn { position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.8); padding: 2px 5px; border: none; color: #ff3333; cursor: pointer; }
+
+    .msg-attachment-img { max-width: 100%; max-height: 300px; margin-top: 10px; border: 1px solid rgba(0, 255, 204, 0.3); border-radius: 4px; }
+
+    .attach-btn { border-color: #00ffcc; color: #00ffcc; padding: 0 10px; display: flex; align-items: center; height: 45px; margin-right: 5px; }
+    .attach-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px rgba(0, 255, 204, 0.5); }
+
+    .reactions { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+    .reaction-pill { background: rgba(0,0,0,0.5); border: 1px solid rgba(0, 255, 204, 0.3); color: #00ffcc; padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
+    .reaction-pill:hover { border-color: #00ffcc; box-shadow: 0 0 5px rgba(0, 255, 204, 0.3); }
+    .reaction-pill.active { background: rgba(0, 255, 204, 0.2); border-color: #00ffcc; }
+
+    .add-reaction { position: relative; padding-bottom: 5px; }
+    .react-btn { color: #888; border: 1px dashed #888; padding: 2px 5px; border-radius: 10px; transition: all 0.2s; }
+    .react-btn:hover { color: #00ffcc; border-color: #00ffcc; }
+    .emoji-picker { display: none; position: absolute; bottom: 100%; left: 0; background: #050505; border: 1px solid #00ffcc; padding: 5px; gap: 5px; z-index: 10; margin-bottom: 0px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.8); }
+    .add-reaction:hover .emoji-picker, .add-reaction:focus-within .emoji-picker { display: flex; }
+    .emoji-picker button { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; transition: transform 0.2s; }
+    .emoji-picker button:hover { transform: scale(1.2); }
+    .custom-emoji-input { background: transparent; border: 1px solid rgba(0,255,204,0.3); color: #fff; width: 35px; text-align: center; border-radius: 4px; outline: none; font-size: 1rem; }
+    .custom-emoji-input:focus { border-color: #00ffcc; box-shadow: 0 0 5px rgba(0,255,204,0.5); }
 
     .decrypt-btn { background: transparent; color: #ffaa00; border: 1px solid #ffaa00; padding: 5px 10px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
     .decrypt-btn:hover { background: #ffaa00; color: #000; box-shadow: 0 0 10px rgba(255, 170, 0, 0.5); }
@@ -534,8 +687,27 @@
     .chat-input-area { padding: 15px 20px; border-top: 1px solid rgba(0, 255, 204, 0.3); background: rgba(0, 0, 0, 0.5); }
     
     .editing-banner { color: #ffaa00; font-size: 0.8rem; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border: 1px dashed #ffaa00; padding: 5px 10px; }
+    .editing-banner button { background: #ffaa00; color: #000; border: none; font-weight: bold; cursor: pointer; padding: 2px 8px; }
     .cancel-btn { background: transparent; border: none; color: #ffaa00; cursor: pointer; font-family: inherit; }
     .cancel-btn:hover { text-decoration: underline; }
+
+    .moderation-popup {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 0, 0, 0.85);
+        color: #fff;
+        border: 2px solid #ff3333;
+        padding: 15px 30px;
+        z-index: 2000;
+        text-align: center;
+        font-weight: bold;
+        text-shadow: 0 0 5px #000;
+        box-shadow: 0 0 20px #ff3333;
+        pointer-events: none;
+        backdrop-filter: blur(5px);
+    }
 
     .input-controls { display: flex; gap: 15px; align-items: center; }
     

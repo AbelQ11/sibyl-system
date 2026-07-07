@@ -32,6 +32,20 @@ const commands = [
             option.setName('query')
                 .setDescription('The username or Citizen ID (SIB-XXXXXXXX) to render')
                 .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName('status')
+        .setDescription('Check the SIBYL system global threat level'),
+    new SlashCommandBuilder()
+        .setName('history')
+        .setDescription('View your recent Crime Coefficient telemetry history'),
+    new SlashCommandBuilder()
+        .setName('division')
+        .setDescription('Check the stats of a specific Division')
+        .addStringOption(option =>
+            option.setName('query')
+                .setDescription('The name of the Division to query')
+                .setRequired(true)
         )
 ].map(command => command.toJSON());
 

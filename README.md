@@ -54,6 +54,7 @@ The SIBYL network enables citizens to establish compliance synchronization chann
   * Cross-platform Public Chat and Group Chat are mirrored in real-time with the Discord bot.
   * Private secure lines are available between friends.
   * Messages support a **"Read-Once"** (auto-destruct) mechanic and are color-coded (Hued) dynamically based on the sender's Crime Coefficient.
+  * **Automated Empathy AI Moderation**: Public transmissions are scanned via a Multi-Provider AI Daemon (Gemini & OpenAI fallback). Toxic communications are permanently redacted and immediate CC penalties are administered to non-compliant citizens.
 * **Advanced Privacy**: Users can restrict visibility of their profile to `PUBLIC`, `FRIENDS`, `GROUP ONLY`, `FRIENDS AND GROUP ONLY`, or `PRIVATE`.
 
 ---

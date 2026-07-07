@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { AI_API_KEY } from '$env/static/private';
+import { queryAI } from '$lib/server/aiFallbackEngine';
 import { db } from '$lib/server/db';
-import { triggerDiscordWebhook } from '$lib/server/webhook';
 
 export async function POST({ request }) {
     try {
@@ -23,24 +22,7 @@ export async function POST({ request }) {
             - Do NOT jump straight to 300+ unless the text indicates extreme, violent, or deeply volatile psychological stress.
             - You MUST answer with the same language that the user used to send the message.`;
 
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${AI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\nUser text: " + text }] }]
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.error) {
-            console.error("Upstream Engine Error Detail:", data.error);
-            throw new Error(`Gemini API Error: ${data.error.message}`);
-        }
-        if (!data.candidates) throw new Error("Gemini API returned an empty payload definition");
-
-        const aiText = data.candidates[0].content.parts[0].text;
+        const aiText = await queryAI(systemPrompt + "\n\nUser text: " + text, 'empathy');
 
         const ccMatch = aiText.match(/CRIME\s+COEFFICIENT:\s*(\d+)/i);
         const cc = ccMatch ? parseInt(ccMatch[1], 10) : 180;
@@ -74,14 +56,7 @@ export async function POST({ request }) {
                 db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'terminal')")
                     .run(userRow.id, parsedData.cc);
 
-                try {
-                    const user = db.prepare('SELECT username, citizen_id, privacy, discord_id FROM users WHERE id = ?').get(userRow.id) as { username: string, citizen_id: string, privacy: string, discord_id: string | null } | undefined;
-                    if (user) {
-                        await triggerDiscordWebhook(user.username, user.citizen_id, parsedData.cc, user.privacy, user.discord_id);
-                    }
-                } catch (webhookErr: any) {
-                    console.error('Failed to trigger Discord webhook on analyze:', webhookErr.message);
-                }
+                /** Discord webhook integration removed. */
             } else {
                 console.warn(`[SIBYL API WARNING]: Citizen '${userId}' not found in database registry for logging.`);
             }

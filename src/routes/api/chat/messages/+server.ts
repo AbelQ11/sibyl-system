@@ -29,10 +29,15 @@ export const GET: RequestHandler = async ({ cookies }) => {
                    (SELECT cc FROM userStats WHERE userId = u.id ORDER BY created_at DESC LIMIT 1) as senderCC,
                    g.name as groupName,
                    (SELECT cg.name FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupName,
-                   (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId
+                   (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId,
+                   parent.text as parentText,
+                   parent_u.username as parentSenderName,
+                   (SELECT AVG(cc) FROM userStats WHERE userId = parent_u.id) as parentAvgCC
             FROM chat_messages m
             JOIN users u ON m.senderId = u.id
             LEFT JOIN chat_groups g ON m.groupId = g.id
+            LEFT JOIN chat_messages parent ON m.replyToId = parent.id
+            LEFT JOIN users parent_u ON parent.senderId = parent_u.id
             WHERE (m.groupId IS NULL AND m.receiverId IS NULL) 
                OR m.receiverId = ? 
                OR m.senderId = ?
@@ -51,10 +56,15 @@ export const GET: RequestHandler = async ({ cookies }) => {
                        (SELECT cc FROM userStats WHERE userId = u.id ORDER BY created_at DESC LIMIT 1) as senderCC,
                        g.name as groupName,
                        (SELECT cg.name FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupName,
-                       (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId
+                       (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId,
+                       parent.text as parentText,
+                       parent_u.username as parentSenderName,
+                       (SELECT AVG(cc) FROM userStats WHERE userId = parent_u.id) as parentAvgCC
                 FROM chat_messages m
                 JOIN users u ON m.senderId = u.id
                 LEFT JOIN chat_groups g ON m.groupId = g.id
+                LEFT JOIN chat_messages parent ON m.replyToId = parent.id
+                LEFT JOIN users parent_u ON parent.senderId = parent_u.id
                 ORDER BY m.created_at ASC
                 LIMIT 200
             `;
@@ -67,23 +77,49 @@ export const GET: RequestHandler = async ({ cookies }) => {
             rawMessages = db.prepare(messagesQuery).all(user.id, user.id, user.id) as any[];
         }
 
+        const messageIds = rawMessages.map(m => m.id);
+        let reactionsByMessage: Record<number, any[]> = {};
+        if (messageIds.length > 0) {
+            const placeholders = messageIds.map(() => '?').join(',');
+            const allReactionRows = db.prepare(`SELECT messageId, emoji, userId FROM chat_message_reactions WHERE messageId IN (${placeholders})`).all(...messageIds) as any[];
+            for (const r of allReactionRows) {
+                if (!reactionsByMessage[r.messageId]) reactionsByMessage[r.messageId] = [];
+                reactionsByMessage[r.messageId].push({ emoji: r.emoji, userId: r.userId });
+            }
+        }
+
         /** Format to match the SSE payload structure */
-        const formattedMessages = rawMessages.map(m => ({
-            id: m.id,
-            senderId: m.senderId,
-            senderName: m.senderRole === 'ADMIN' ? 'XXXXXXXXXX' : m.senderName,
-            senderAvatar: m.senderAvatar,
-            senderCC: m.senderCC || 0,
-            senderRole: m.senderRole,
-            receiverId: m.receiverId,
-            groupId: m.groupId,
-            groupName: m.groupName,
-            senderGroupName: m.senderGroupName,
-            senderGroupId: m.senderGroupId,
-            text: m.text,
-            isReadOnce: Boolean(m.isReadOnce),
-            created_at: m.created_at.includes('T') ? m.created_at : m.created_at.replace(' ', 'T') + 'Z'
-        }));
+        const formattedMessages = rawMessages.map(m => {
+            let replyToMessage = null;
+            if (m.replyToId && m.parentText) {
+                replyToMessage = {
+                    text: m.parentText,
+                    senderName: m.parentSenderName,
+                    senderAvgCC: Math.round(m.parentAvgCC || 0)
+                };
+            }
+
+            return {
+                id: m.id,
+                senderId: m.senderId,
+                senderName: m.senderRole === 'ADMIN' ? 'XXXXXXXXXX' : m.senderName,
+                senderAvatar: m.senderAvatar,
+                senderCC: m.senderCC || 0,
+                senderRole: m.senderRole,
+                receiverId: m.receiverId,
+                groupId: m.groupId,
+                groupName: m.groupName,
+                senderGroupName: m.senderGroupName,
+                senderGroupId: m.senderGroupId,
+                text: m.text,
+                isReadOnce: Boolean(m.isReadOnce),
+                replyToId: m.replyToId,
+                replyToMessage,
+                attachment: m.attachment,
+                reactions: reactionsByMessage[m.id] || [],
+                created_at: m.created_at.includes('T') ? m.created_at : m.created_at.replace(' ', 'T') + 'Z'
+            };
+        });
 
         return json({ messages: formattedMessages });
 

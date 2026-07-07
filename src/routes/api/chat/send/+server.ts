@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { chatStore } from '$lib/server/chatStore';
+import { queryAI } from '$lib/server/aiFallbackEngine';
 import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 import type { RequestHandler } from './$types';
@@ -24,7 +25,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     try {
         const body = await request.json();
-        const { text, targetType, targetId, isReadOnce } = body;
+        const { text, targetType, targetId, isReadOnce, replyToId, attachment } = body;
 
         if (!text || typeof text !== 'string') {
             return json({ error: 'Message text is required' }, { status: 400 });
@@ -32,6 +33,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
         if (text.length > 250) {
             return json({ error: 'Message exceeds 250 characters limit' }, { status: 400 });
+        }
+
+        if (replyToId) {
+            const parent = db.prepare('SELECT isReadOnce FROM chat_messages WHERE id = ?').get(replyToId) as { isReadOnce: number } | undefined;
+            if (!parent) return json({ error: 'Parent message not found' }, { status: 404 });
+            if (parent.isReadOnce) return json({ error: 'Cannot reply to a classified Read-Once message' }, { status: 403 });
         }
 
         /** Get sender's last CC for hue coloring */
@@ -82,9 +89,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
         /** Insert into DB (even read-once messages go to DB temporarily until read) */
         const info = db.prepare(`
-            INSERT INTO chat_messages (senderId, receiverId, groupId, text, isReadOnce)
-            VALUES (?, ?, ?, ?, ?)
-        `).run(user.id, receiverId, groupId, text, isReadOnce ? 1 : 0);
+            INSERT INTO chat_messages (senderId, receiverId, groupId, text, isReadOnce, replyToId, attachment)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(user.id, receiverId, groupId, text, isReadOnce ? 1 : 0, replyToId || null, attachment || null);
 
         const messageId = info.lastInsertRowid;
 
@@ -105,6 +112,25 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         const senderGroupName = senderGroupRow ? senderGroupRow.name : null;
         const senderGroupId = senderGroupRow ? senderGroupRow.id : null;
 
+        let replyToMessage = null;
+        if (replyToId) {
+            const parent = db.prepare(`
+                SELECT m.text, u.username as senderName,
+                       (SELECT AVG(cc) FROM userStats WHERE userId = u.id) as avgCC
+                FROM chat_messages m
+                JOIN users u ON m.senderId = u.id
+                WHERE m.id = ?
+            `).get(replyToId) as any;
+            
+            if (parent) {
+                replyToMessage = {
+                    text: parent.text,
+                    senderName: parent.senderName,
+                    senderAvgCC: Math.round(parent.avgCC || 0)
+                };
+            }
+        }
+
         const messagePayload = {
             id: messageId,
             targetType,
@@ -120,6 +146,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             senderGroupId,
             text,
             isReadOnce: Boolean(isReadOnce),
+            replyToId: replyToId || null,
+            replyToMessage,
+            attachment: attachment || null,
+            reactions: [],
             created_at: new Date().toISOString()
         };
 
@@ -128,40 +158,20 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             /** Admin global broadcast */
             chatStore.broadcast({ type: 'message', message: messagePayload });
             
-            /** Webhook to Discord Bot */
-            try {
-                fetch('http://127.0.0.1:3005/webhook', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${env.SIB_BOT_SECRET}`
-                    },
-                    body: JSON.stringify({
-                        action: 'GLOBAL_ANNOUNCEMENT',
-                        payload: { text }
-                    })
-                }).catch(console.error);
-            } catch (e) {
-                console.error("Webhook failed:", e);
-            }
-
-        } else if (targetType === 'PUBLIC') {
-            chatStore.broadcast({ type: 'message', message: messagePayload });
 
         } else if (targetType === 'PRIVATE') {
             chatStore.broadcast({ type: 'message', message: messagePayload }, [user.id, receiverId]);
         } else if (targetType === 'GROUP') {
-            /** Fetch all group members */
             const members = db.prepare(`SELECT userId FROM chat_group_members WHERE groupId = ?`).all(groupId) as { userId: number }[];
             const memberIds = members.map(m => m.userId);
-            /**
-             * Include admin if they are monitoring? Actually just send to members.
-             * If sender is admin and not in group, add sender to target list so they see their own message
-             */
             if (!memberIds.includes(user.id)) memberIds.push(user.id);
-            
             chatStore.broadcast({ type: 'message', message: messagePayload }, memberIds);
+        } else {
+            /** PUBLIC */
+            chatStore.broadcast({ type: 'message', message: messagePayload });
 
+            /** Launch Asynchronous Moderation Daemon for PUBLIC chat only */
+            moderateMessage(Number(messageId), text, user.id).catch(err => console.error("Moderation Daemon Error:", err));
         }
 
         return json({ success: true, message: messagePayload });
@@ -171,3 +181,35 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         return json({ error: e.message || 'Server error' }, { status: 500 });
     }
 };
+
+async function moderateMessage(messageId: number, text: string, userId: number) {
+    const prompt = `You are the SIBYL System Empathy AI. Evaluate the following citizen message. Does it contain profanity, toxic language, insults, violence, physical threats, or explicitly rebellious intent against the system? 
+    Return a JSON strictly in this format without any markdown blocks: {"hasInfraction": boolean, "severityScore": number} where severityScore is an integer from 1 to 10.
+    
+    Message: "${text}"`;
+
+    const aiResponse = await queryAI(prompt, 'moderation');
+    
+    let jsonStr = aiResponse;
+    if (jsonStr.includes('\`\`\`')) {
+        jsonStr = jsonStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '');
+    }
+    
+    const parsed = JSON.parse(jsonStr);
+
+    if (parsed.hasInfraction || parsed.isViolent) {
+        const penalty = (parsed.severityScore || 5) * 5;
+        const stats = db.prepare('SELECT cc FROM userStats WHERE userId = ? ORDER BY id DESC LIMIT 1').get(userId) as any;
+        const newCC = (stats ? stats.cc : 0) + penalty;
+        
+        db.prepare('INSERT INTO userStats (userId, cc, type) VALUES (?, ?, ?)').run(userId, newCC, 'SCAN_ENFORCEMENT');
+
+        const redactedText = `[REDACTED BY SIBYL SYSTEM DUE TO PSYCHO-PASS CLOUDING. CC PENALTY: +${penalty}]`;
+        db.prepare("UPDATE chat_messages SET text = ? WHERE id = ?").run(redactedText, messageId);
+        
+        chatStore.broadcast({ 
+            type: 'message_edited', 
+            message: { id: messageId, text: redactedText, isReadOnce: false } 
+        });
+    }
+}

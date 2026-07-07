@@ -227,3 +227,30 @@ db.exec(`
     );
 `);
 console.log('Successfully initialized chat_messages table in citizen.db');
+
+/** 12. Add replyToId to chat_messages */
+try {
+    db.exec("ALTER TABLE chat_messages ADD COLUMN replyToId INTEGER REFERENCES chat_messages(id) ON DELETE SET NULL;");
+    console.log("Successfully added 'replyToId' column to chat_messages table.");
+} catch (e) {}
+
+/** 13. Add attachment to chat_messages */
+try {
+    db.exec("ALTER TABLE chat_messages ADD COLUMN attachment TEXT DEFAULT NULL;");
+    console.log("Successfully added 'attachment' column to chat_messages table.");
+} catch (e) {}
+
+/** 14. Create chat_message_reactions table */
+db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_message_reactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        messageId INTEGER NOT NULL,
+        userId INTEGER NOT NULL,
+        emoji TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(messageId) REFERENCES chat_messages(id) ON DELETE CASCADE,
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(messageId, userId, emoji)
+    );
+`);
+console.log('Successfully initialized chat_message_reactions table in citizen.db');
