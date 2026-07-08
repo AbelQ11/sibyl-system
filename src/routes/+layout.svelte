@@ -141,22 +141,25 @@
             </div>
             <div class="nav-links">
                 <a href="/chat" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_CHAT || '[ PUBLIC COMM ]'}
+                    {$dictionary[$locale].NAV_CHAT}
                 </a>
                 <a href="/privacy" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_PRIVACY || '[ PRIVACY ]'}
+                    {$dictionary[$locale].NAV_PRIVACY}
                 </a>
                 <a href="/terms" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_TERMS || '[ TERMS ]'}
+                    {$dictionary[$locale].NAV_TERMS}
+                </a>
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSfxIDPeKN25x_OlKqlWfg1S_o2Cqqhyi3YFq0BBGhdMgaC3Ow/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer" class="nav-btn-link">
+                    {$dictionary[$locale].NAV_SUGGESTIONS}
                 </a>
                 <a href="https://ko-fi.com/kiliotsu" target="_blank" rel="noopener noreferrer" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_KOFI || '[ KO-FI ]'}
+                    {$dictionary[$locale].NAV_KOFI}
                 </a>
                 <a href="https://github.com/AbelQ11/sibyl-system" target="_blank" rel="noopener noreferrer" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_GITHUB || '[ GITHUB ]'}
+                    {$dictionary[$locale].NAV_GITHUB}
                 </a>
                 <a href="/invite" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_INVITE || '[ DISCORD BOT ]'}
+                    {$dictionary[$locale].NAV_INVITE}
                 </a>
                 <button class="lang-toggle-btn" on:click={toggleLanguage}>
                     [ {$locale} ]
@@ -184,32 +187,35 @@
         <div class="burger-menu-overlay" transition:fade>
             <div class="crt-overlay"></div>
             <button class="burger-close-btn" on:click={closeMenu}>
-                [ ✕ CLOSE ]
+                {$dictionary[$locale].NAV_CLOSE}
             </button>
             <div class="burger-menu-content">
-                <div class="burger-logo">SIBYL SYSTEM MODULES</div>
+                <div class="burger-logo">{$dictionary[$locale].NAV_MODULES}</div>
                 
                 <a href="/chat" class="burger-link" on:click={closeMenu}>
-                    {$dictionary[$locale].NAV_CHAT || 'PUBLIC COMM'}
+                    {$dictionary[$locale].NAV_CHAT}
                 </a>
                 <a href="/privacy" class="burger-link" on:click={closeMenu}>
-                    {$dictionary[$locale].NAV_PRIVACY || 'PRIVACY POLICY'}
+                    {$dictionary[$locale].NAV_PRIVACY}
                 </a>
                 <a href="/terms" class="burger-link">
-                    {$dictionary[$locale].NAV_TERMS || 'TERMS OF SERVICE'}
+                    {$dictionary[$locale].NAV_TERMS}
+                </a>
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSfxIDPeKN25x_OlKqlWfg1S_o2Cqqhyi3YFq0BBGhdMgaC3Ow/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer" class="burger-link">
+                    {$dictionary[$locale].NAV_SUGGESTIONS}
                 </a>
                 <a href="https://ko-fi.com/kiliotsu" target="_blank" rel="noopener noreferrer" class="burger-link">
-                    {$dictionary[$locale].NAV_KOFI || 'SUPPORT SIBYL'}
+                    {$dictionary[$locale].NAV_KOFI}
                 </a>
                 <a href="https://github.com/AbelQ11/sibyl-system" target="_blank" rel="noopener noreferrer" class="burger-link">
-                    {$dictionary[$locale].NAV_GITHUB || 'SYSTEM REPOSITORY'}
+                    {$dictionary[$locale].NAV_GITHUB}
                 </a>
                 <a href="/invite" class="burger-link">
-                    {$dictionary[$locale].NAV_INVITE || 'DISCORD BOT'}
+                    {$dictionary[$locale].NAV_INVITE}
                 </a>
                 
                 <button class="burger-lang-btn" on:click={toggleLanguage}>
-                    [ LANGUAGE: {$locale} ]
+                    [ {$dictionary[$locale].NAV_LANGUAGE}: {$locale} ]
                 </button>
 
                 {#if $currentUser}

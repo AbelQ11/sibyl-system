@@ -435,8 +435,8 @@
                 <select id="privacy" bind:value={privacySetting} class="privacy-select">
                     <option value="PRIVATE">{$dictionary[$locale].ACC_PRIVACY_PRIVATE}</option>
                     <option value="FRIENDS">{$dictionary[$locale].ACC_PRIVACY_FRIENDS}</option>
-                    <option value="GROUP ONLY">GROUP ONLY</option>
-                    <option value="FRIENDS AND GROUP ONLY">FRIENDS AND GROUP ONLY</option>
+                    <option value="GROUP ONLY">{$dictionary[$locale].ACC_PRIVACY_GROUPS}</option>
+                    <option value="FRIENDS AND GROUP ONLY">{$dictionary[$locale].ACC_PRIVACY_GROUPS_FRIENDS}</option>
                     <option value="PUBLIC">{$dictionary[$locale].ACC_PRIVACY_PUBLIC}</option>
                 </select>
 

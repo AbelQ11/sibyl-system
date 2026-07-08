@@ -75,7 +75,7 @@
                 output = [...output, resultBlock, choiceText];
                 terminalState = 'AWAITING_CHOICE';
             } catch (err) {
-                output = [...output, "SYSTEM CORRUPTION. DIAGNOSTIC ABORTED."];
+                output = [...output, $dictionary[$locale].TERM_ERR_CORRUPTION];
                 terminalState = 'COMMAND';
             }
             await updateScroll();
@@ -83,7 +83,7 @@
         }
 
         if (terminalState === 'AWAITING_SCAN') {
-            output = [...output, `> ${cmd}`, "EXECUTING RE-SCAN SEQUENCE..."];
+            output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_MSG_RESCAN];
             input = '';
             await updateScroll();
 
@@ -106,7 +106,7 @@
                 output = [...output, resultBlock, choiceText];
                 terminalState = 'AWAITING_CHOICE';
             } catch (err) {
-                output = [...output, "RE-SCAN INTERRUPTED. LINK FAULT."];
+                output = [...output, $dictionary[$locale].TERM_ERR_RESCAN];
                 terminalState = 'COMMAND';
             }
             await updateScroll();
@@ -129,7 +129,7 @@
         }
         if (upperCmd === 'ACCOUNT') {
             if (!$currentUser) {
-                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
+                output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_ERR_AUTH];
             } else {
                 import('$app/navigation').then(nav => nav.goto('/account'));
             }
@@ -139,7 +139,7 @@
         }
         if (upperCmd === 'TREND') {
             if (!$currentUser) {
-                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
+                output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_ERR_AUTH];
             } else {
                 import('$app/navigation').then(nav => nav.goto('/trends'));
             }
@@ -153,7 +153,7 @@
                 locale.set(lang);
                 output = [...output, `> ${cmd}`, lang === 'EN' ? "LANGUAGE UPDATED TO ENGLISH." : "LANGUE MISE À JOUR EN FRANÇAIS."];
             } else {
-                output = [...output, `> ${cmd}`, "INVALID LANGUAGE. SUPPORTED: EN / FR"];
+                output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_ERR_LANG];
             }
             input = '';
             await updateScroll();
@@ -172,7 +172,7 @@
             return;
         }
         if (upperCmd === 'EVALUATE') {
-            output = [...output, `> ${cmd}`, "MANUAL EVALUATION INITIATED.", "PLEASE DESCRIBE YOUR CURRENT EMOTIONAL STATE FOR DIAGNOSTIC EVALUATION:"];
+            output = [...output, `> ${cmd}`, "MANUAL EVALUATION INITIATED.", $dictionary[$locale].TERM_MSG_EVAL];
             terminalState = 'AWAITING_TEXT';
             input = '';
             await updateScroll();
@@ -180,9 +180,9 @@
         }
         if (upperCmd === 'SCAN') {
             if (!$currentUser) {
-                output = [...output, `> ${cmd}`, "ERROR: IDENTIFICATION REQUIRED. TYPE 'LOGIN'."];
+                output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_ERR_AUTH];
             } else {
-                output = [...output, `> ${cmd}`, "PERFORMING LIVE COGNITIVE PSYCHO-PASS RE-SCAN...", "ENTER RE-EVALUATION TEXT PARAMETERS TO STABILIZE INDEX:"];
+                output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_MSG_SCAN];
                 terminalState = 'AWAITING_SCAN';
             }
             input = '';
@@ -190,7 +190,7 @@
             return;
         }
 
-        output = [...output, `> ${cmd}`, "COMMUNICATING WITH SIBYL CORES..."];
+        output = [...output, `> ${cmd}`, $dictionary[$locale].TERM_MSG_COMM];
         input = '';
         await updateScroll();
 
@@ -201,9 +201,9 @@
                 body: JSON.stringify({ userMessage: cmd })
             });
             const data = await res.json();
-            output = [...output, data.reply || "SIBYL STATUS STABLE."];
+            output = [...output, data.reply || $dictionary[$locale].TERM_MSG_STABLE];
         } catch (err) {
-            output = [...output, "CONNECTION TO CORE LINK UNAVAILABLE."];
+            output = [...output, $dictionary[$locale].TERM_ERR_LINK];
         }
         await updateScroll();
     }

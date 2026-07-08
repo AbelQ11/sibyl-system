@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { dictionary, locale } from '$lib/i18n';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
@@ -51,10 +52,10 @@
                 isMember = roster.some((m: any) => m.id === currentUser.id);
                 isEnforcer = roster.some((m: any) => m.id === currentUser.id && m.role === 'ENFORCER');
             } else {
-                error = 'Failed to load Division Data';
+                error = $dictionary[$locale].GRP_DET_ERR_LOAD;
             }
         } catch(e) {
-            error = 'Network Error';
+            error = $dictionary[$locale].GRP_DET_ERR_NET;
         }
 
         try {
@@ -93,7 +94,7 @@
                 editMaxCCMode = false;
                 editNameMode = false;
             } else {
-                alert('Failed to update settings');
+                alert($dictionary[$locale].GRP_DET_ERR_SET);
             }
         } catch(e) {}
     }
@@ -107,7 +108,7 @@
                 body: JSON.stringify({ groupId: parseInt(groupId), friendId: selectedFriendToInvite })
             });
             if (res.ok) {
-                alert('Citizen successfully invited to division.');
+                alert($dictionary[$locale].GRP_DET_MSG_INVITE);
                 inviteDropdownOpen = false;
                 selectedFriendToInvite = null;
             } else {
@@ -148,10 +149,10 @@
             if (res.ok) {
                 group.avatar = base64Avatar;
             } else {
-                alert('Failed to upload avatar');
+                alert($dictionary[$locale].GRP_DET_ERR_AVATAR);
             }
         } catch (e) {
-            alert('Upload error');
+            alert($dictionary[$locale].GRP_DET_ERR_UP);
         }
     }
 
@@ -162,7 +163,7 @@
     }
 
     async function changeRole(memberId: number, action: 'PROMOTE' | 'DEMOTE') {
-        if (!confirm(`Are you sure you want to ${action.toLowerCase()} this citizen?`)) return;
+        if (!confirm(action === 'PROMOTE' ? $dictionary[$locale].GRP_DET_CONF_PROMOTE : $dictionary[$locale].GRP_DET_CONF_DEMOTE)) return;
         try {
             const res = await fetch(`/api/group/${groupId}/members`, {
                 method: 'PUT',
@@ -173,13 +174,13 @@
                 await loadGroup();
             } else {
                 const d = await res.json();
-                alert(d.error || 'Failed to change role');
+                alert(d.error || $dictionary[$locale].GRP_DET_ERR_ROLE);
             }
         } catch(e) {}
     }
 
     async function kickMember(memberId: number) {
-        if (!confirm('Are you sure you want to kick this citizen from the division?')) return;
+        if (!confirm($dictionary[$locale].GRP_DET_CONF_KICK)) return;
         try {
             const res = await fetch(`/api/group/${groupId}/members`, {
                 method: 'DELETE',
@@ -190,7 +191,7 @@
                 await loadGroup();
             } else {
                 const d = await res.json();
-                alert(d.error || 'Failed to kick member');
+                alert(d.error || $dictionary[$locale].GRP_DET_ERR_KICK);
             }
         } catch(e) {}
     }
@@ -204,7 +205,7 @@
             });
             const data = await res.json();
             if (res.ok) {
-                alert('Successfully requested entry / joined.');
+                alert($dictionary[$locale].GRP_DET_MSG_JOIN);
                 await loadGroup();
             } else {
                 alert(data.error);
@@ -215,11 +216,11 @@
     }
 
     async function disbandGroup() {
-        if (!confirm('CRITICAL ACTION: Are you absolutely sure you want to disband this division? This action cannot be undone.')) return;
+        if (!confirm($dictionary[$locale].GRP_DET_CONF_DISBAND)) return;
         try {
             const res = await fetch(`/api/group/${groupId}`, { method: 'DELETE' });
             if (res.ok) {
-                alert('Division has been disbanded.');
+                alert($dictionary[$locale].GRP_DET_MSG_DISBAND);
                 goto('/groups');
             } else {
                 const d = await res.json();
@@ -229,7 +230,7 @@
     }
 
     async function revokeInvite(requestId: number) {
-        if (!confirm('Are you sure you want to revoke this invite?')) return;
+        if (!confirm($dictionary[$locale].GRP_DET_CONF_REVOKE)) return;
         try {
             const res = await fetch(`/api/group/${groupId}/requests`, {
                 method: 'DELETE',
@@ -252,34 +253,34 @@
 
     <div class="main-card card-border">
         {#if loading}
-            <div class="loading-state">SCANNING DIVISION REGISTRY...</div>
+            <div class="loading-state">{$dictionary[$locale].GRP_DET_SCANNING}</div>
         {:else if error}
             <div class="empty-state">{error}</div>
-            <button class="return-btn" on:click={() => goto('/groups')}>[ RETURN ]</button>
+            <button class="return-btn" on:click={() => goto('/groups')}>{$dictionary[$locale].GRP_DET_RETURN}</button>
         {:else if group}
             <div class="header">
                 <div class="title-container">
                     {#if editNameMode}
                         <input type="text" bind:value={newName} class="cc-input" style="width: 250px; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;" maxlength="50" />
-                        <button class="save-btn" on:click={saveGroupSettings}>[ SAVE ]</button>
-                        <button class="mini-btn" on:click={() => editNameMode = false}>[ CANCEL ]</button>
+                        <button class="save-btn" on:click={saveGroupSettings}>{$dictionary[$locale].GRP_DET_SAVE}</button>
+                        <button class="mini-btn" on:click={() => editNameMode = false}>{$dictionary[$locale].GRP_DET_CANCEL}</button>
                     {:else}
-                        <h2>// DIVISION : {group.name.toUpperCase()}</h2>
+                        <h2>{$dictionary[$locale].GRP_DET_HEADER} {group.name.toUpperCase()}</h2>
                         {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
-                            <button class="mini-btn" on:click={() => editNameMode = true}>[ EDIT ]</button>
+                            <button class="mini-btn" on:click={() => editNameMode = true}>{$dictionary[$locale].GRP_DET_EDIT}</button>
                         {/if}
                     {/if}
                 </div>
                 <div class="header-actions">
                     {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
-                        <button class="disband-btn" on:click={disbandGroup}>[ DISBAND DIVISION ]</button>
+                        <button class="disband-btn" on:click={disbandGroup}>{$dictionary[$locale].GRP_DET_DISBAND}</button>
                     {/if}
                     {#if isMember}
-                        <button class="enter-btn" on:click={() => goto(`/chat?group=${groupId}`)}>[ ENTER COMM ]</button>
+                        <button class="enter-btn" on:click={() => goto(`/chat?group=${groupId}`)}>{$dictionary[$locale].GRP_DET_ENTER}</button>
                     {:else}
-                        <button class="join-btn" on:click={joinGroup}>[ REQUEST ENTRY ]</button>
+                        <button class="join-btn" on:click={joinGroup}>{$dictionary[$locale].GRP_DET_REQUEST}</button>
                     {/if}
-                    <button class="return-btn" on:click={() => goto('/groups')}>[ RETURN ]</button>
+                    <button class="return-btn" on:click={() => goto('/groups')}>{$dictionary[$locale].GRP_DET_RETURN}</button>
                 </div>
             </div>
 
@@ -293,10 +294,10 @@
                         {#if group.avatar}
                             <img src={group.avatar} alt="Group Avatar" />
                         {:else}
-                            <div class="blank-avatar">NO IMG</div>
+                            <div class="blank-avatar">{$dictionary[$locale].GRP_DET_NO_IMG}</div>
                         {/if}
                         {#if currentUser.role === 'ADMIN' || currentUser.id === group.inspectorId}
-                            <div class="upload-overlay">UPLOAD</div>
+                            <div class="upload-overlay">{$dictionary[$locale].GRP_DET_UPLOAD}</div>
                         {/if}
                     </div>
                     <input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileChange} style="display: none;" />
@@ -305,42 +306,42 @@
                 <!-- Info Section -->
                 <div class="info-section">
                     <div class="stat-row">
-                        <span class="label">MAX CC THRESHOLD:</span>
+                        <span class="label">{$dictionary[$locale].GRP_DET_MAX_CC}</span>
                         {#if editMaxCCMode}
                             <input type="number" bind:value={newMaxCC} class="cc-input" />
-                            <button class="save-btn" on:click={saveGroupSettings}>[ SAVE ]</button>
-                            <button class="mini-btn" on:click={() => editMaxCCMode = false}>[ CANCEL ]</button>
+                            <button class="save-btn" on:click={saveGroupSettings}>{$dictionary[$locale].GRP_DET_SAVE}</button>
+                            <button class="mini-btn" on:click={() => editMaxCCMode = false}>{$dictionary[$locale].GRP_DET_CANCEL}</button>
                         {:else}
                             <span class="value">{group.maxCC}</span>
                             {#if currentUser.role === 'ADMIN' || currentUser.id === group.inspectorId}
-                                <button class="mini-btn" on:click={() => editMaxCCMode = true}>[ EDIT ]</button>
+                                <button class="mini-btn" on:click={() => editMaxCCMode = true}>{$dictionary[$locale].GRP_DET_EDIT}</button>
                             {/if}
                         {/if}
                     </div>
                     <div class="stat-row">
-                        <span class="label">AVERAGE CC:</span>
+                        <span class="label">{$dictionary[$locale].GRP_DET_AVG_CC}</span>
                         <span class="value {getHueClass(parseFloat(avgCC))}">{avgCC}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="label">MEMBER COUNT:</span>
+                        <span class="label">{$dictionary[$locale].GRP_DET_MEMBERS}</span>
                         <span class="value">{roster.length}</span>
                     </div>
 
                     <div class="bio-section">
                         <div class="bio-header">
-                            <span class="label">DIVISION BIO:</span>
+                            <span class="label">{$dictionary[$locale].GRP_DET_BIO}</span>
                             {#if currentUser.role === 'ADMIN' || currentUser.id === group.inspectorId}
                                 <button class="mini-btn" on:click={() => editBioMode = !editBioMode}>
-                                    {editBioMode ? '[ CANCEL ]' : '[ EDIT ]'}
+                                    {editBioMode ? $dictionary[$locale].GRP_DET_CANCEL : $dictionary[$locale].GRP_DET_EDIT}
                                 </button>
                             {/if}
                         </div>
                         {#if editBioMode}
                             <textarea bind:value={newBio} maxlength="500"></textarea>
-                            <button class="save-btn" on:click={saveGroupSettings}>[ SAVE BIO ]</button>
+                            <button class="save-btn" on:click={saveGroupSettings}>{$dictionary[$locale].GRP_DET_SAVE_BIO}</button>
                         {:else}
                             <div class="bio-text">
-                                {group.bio ? group.bio : 'No bio recorded.'}
+                                {group.bio ? group.bio : $dictionary[$locale].GRP_DET_NO_BIO}
                             </div>
                         {/if}
                     </div>
@@ -348,17 +349,17 @@
                     {#if currentUser.role === 'ADMIN' || isMember}
                         <div class="invite-section">
                             <button class="action-btn promote invite-toggle" on:click={() => inviteDropdownOpen = !inviteDropdownOpen}>
-                                [ INVITE CITIZEN TO DIVISION ]
+                                {$dictionary[$locale].GRP_DET_INVITE_BTN}
                             </button>
                             {#if inviteDropdownOpen}
                                 <div class="invite-dropdown" transition:fade>
                                     <select bind:value={selectedFriendToInvite} class="cc-input" style="width: 200px;">
-                                        <option value={null}>-- SELECT CITIZEN --</option>
+                                        <option value={null}>{$dictionary[$locale].GRP_DET_SELECT_CITIZEN}</option>
                                         {#each friends as friend}
                                             <option value={friend.id}>{friend.username}</option>
                                         {/each}
                                     </select>
-                                    <button class="save-btn" on:click={inviteFriend}>[ CONFIRM INVITE ]</button>
+                                    <button class="save-btn" on:click={inviteFriend}>{$dictionary[$locale].GRP_DET_CONFIRM_INVITE}</button>
                                 </div>
                             {/if}
                         </div>
@@ -370,23 +371,23 @@
             <div class="management-section">
                 {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
                     <div class="tabs">
-                        <button class="tab-btn {activeTab === 'roster' ? 'active' : ''}" on:click={() => activeTab = 'roster'}>[ DIVISION ROSTER ]</button>
-                        <button class="tab-btn {activeTab === 'invites' ? 'active' : ''}" on:click={() => activeTab = 'invites'}>[ PENDING INVITES ]</button>
+                        <button class="tab-btn {activeTab === 'roster' ? 'active' : ''}" on:click={() => activeTab = 'roster'}>{$dictionary[$locale].GRP_DET_TAB_ROSTER}</button>
+                        <button class="tab-btn {activeTab === 'invites' ? 'active' : ''}" on:click={() => activeTab = 'invites'}>{$dictionary[$locale].GRP_DET_TAB_INVITES}</button>
                     </div>
                 {:else}
-                    <h3>// DIVISION ROSTER</h3>
+                    <h3>{$dictionary[$locale].GRP_DET_ROSTER}</h3>
                 {/if}
 
                 {#if activeTab === 'roster'}
                     <table class="roster-table">
                         <thead>
                             <tr>
-                                <th>CITIZEN</th>
-                                <th>SYSTEM ID</th>
-                                <th>ROLE</th>
-                                <th>CURRENT CC</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_CITIZEN}</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_SYSID}</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_ROLE}</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_CC}</th>
                                 {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId || isEnforcer}
-                                    <th>ACTIONS</th>
+                                    <th>{$dictionary[$locale].GRP_DET_COL_ACTIONS}</th>
                                 {/if}
                             </tr>
                         </thead>
@@ -403,14 +404,14 @@
                                             <span class="username">{member.username.toUpperCase()}</span>
                                         </div>
                                     </td>
-                                    <td>{member.citizen_id || 'UNKNOWN'}</td>
+                                    <td>{member.citizen_id || $dictionary[$locale].GRP_DET_UNKNOWN}</td>
                                     <td>
                                         {#if member.id === group.inspectorId}
-                                            <span class="role-badge inspector">INSPECTOR</span>
+                                            <span class="role-badge inspector">{$dictionary[$locale].GRP_DET_ROLE_INSPECTOR}</span>
                                         {:else if member.role === 'ENFORCER'}
-                                            <span class="role-badge enforcer">ENFORCER</span>
+                                            <span class="role-badge enforcer">{$dictionary[$locale].GRP_DET_ROLE_ENFORCER}</span>
                                         {:else}
-                                            <span class="role-badge citizen">CITIZEN</span>
+                                            <span class="role-badge citizen">{$dictionary[$locale].GRP_DET_ROLE_CITIZEN}</span>
                                         {/if}
                                     </td>
                                     <td class={getHueClass(member.cc)}>{member.cc ? member.cc.toFixed(1) : '---'}</td>
@@ -420,12 +421,12 @@
                                                 <div class="action-buttons">
                                                     {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
                                                         {#if member.role === 'CITIZEN' || !member.role}
-                                                            <button class="action-btn promote" on:click={() => changeRole(member.id, 'PROMOTE')}>[ PROMOTE ]</button>
+                                                            <button class="action-btn promote" on:click={() => changeRole(member.id, 'PROMOTE')}>{$dictionary[$locale].GRP_DET_PROMOTE}</button>
                                                         {:else}
-                                                            <button class="action-btn demote" on:click={() => changeRole(member.id, 'DEMOTE')}>[ DEMOTE ]</button>
+                                                            <button class="action-btn demote" on:click={() => changeRole(member.id, 'DEMOTE')}>{$dictionary[$locale].GRP_DET_DEMOTE}</button>
                                                         {/if}
                                                     {/if}
-                                                    <button class="action-btn kick" on:click={() => kickMember(member.id)}>[ KICK ]</button>
+                                                    <button class="action-btn kick" on:click={() => kickMember(member.id)}>{$dictionary[$locale].GRP_DET_KICK}</button>
                                                 </div>
                                             {/if}
                                         </td>
@@ -438,22 +439,22 @@
                     <table class="roster-table">
                         <thead>
                             <tr>
-                                <th>CITIZEN</th>
-                                <th>SYSTEM ID</th>
-                                <th>ACTIONS</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_CITIZEN}</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_SYSID}</th>
+                                <th>{$dictionary[$locale].GRP_DET_COL_ACTIONS}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {#each pendingGroupRequests as req}
                                 <tr>
                                     <td><span class="username">{req.username.toUpperCase()}</span></td>
-                                    <td>{req.citizen_id || 'UNKNOWN'}</td>
+                                    <td>{req.citizen_id || $dictionary[$locale].GRP_DET_UNKNOWN}</td>
                                     <td>
-                                        <button class="action-btn kick" on:click={() => revokeInvite(req.id)}>[ REVOKE INVITE ]</button>
+                                        <button class="action-btn kick" on:click={() => revokeInvite(req.id)}>{$dictionary[$locale].GRP_DET_REVOKE}</button>
                                     </td>
                                 </tr>
                             {:else}
-                                <tr><td colspan="3" class="empty">NO PENDING INVITES.</td></tr>
+                                <tr><td colspan="3" class="empty">{$dictionary[$locale].GRP_DET_NO_INVITES}</td></tr>
                             {/each}
                         </tbody>
                     </table>

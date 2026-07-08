@@ -55,7 +55,7 @@
         </div>
 
         <div class="warning-section card-border">
-            <span class="warn-label">! WARNING !</span>
+            <span class="warn-label">{$dictionary[$locale].INVITE_WARN_LABEL}</span>
             <p class="warn-text">{$dictionary[$locale].INVITE_WARNING}</p>
         </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { dictionary, locale } from '$lib/i18n';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
@@ -146,7 +147,7 @@
 
     async function toggleNotifications() {
         if (!('Notification' in window)) {
-            alert("Your browser does not support desktop notifications.");
+            alert($dictionary[$locale].CHAT_ERR_DESKTOP_NOTIFS);
             return;
         }
 
@@ -159,7 +160,7 @@
                 globalNotificationsEnabled.set(true);
                 localStorage.setItem('sibyl_notifications', 'true');
             } else {
-                alert("Permission for notifications was denied.");
+                alert($dictionary[$locale].CHAT_ERR_NOTIFS_DENIED);
             }
         }
     }
@@ -228,7 +229,7 @@
     }
 
     async function deleteMessage(id: number) {
-        if (!confirm("Confirm deletion of this record?")) return;
+        if (!confirm($dictionary[$locale].CHAT_CONFIRM_DELETE)) return;
         try {
             await fetch('/api/chat/delete', {
                 method: 'DELETE',
@@ -291,35 +292,35 @@
 <div class="chat-layout">
     <!-- SIDEBAR -->
     <div class="sidebar">
-        <h3 class="sidebar-title">// CHANNELS</h3>
+        <h3 class="sidebar-title">{$dictionary[$locale].CHAT_CHANNELS}</h3>
         
         <div class="sidebar-section">
             <button class="channel-btn" class:active={currentTab === 'PUBLIC'} on:click={() => goto('/chat')}>
-                # PUBLIC_GLOBAL
+                # {$dictionary[$locale].CHAT_PUBLIC_GLOBAL}
             </button>
         </div>
 
         <div class="sidebar-section">
-            <h4 class="section-header">DIVISIONS</h4>
+            <h4 class="section-header">{$dictionary[$locale].CHAT_DIVISIONS}</h4>
             {#each groups as group}
                 <button class="channel-btn" class:active={currentTab === 'GROUP' && targetId === group.id} on:click={() => goto(`/chat?group=${group.id}`)}>
                     # {group.name.toUpperCase()}
                 </button>
             {/each}
             {#if groups.length === 0}
-                <div class="empty-list">NO DIVISIONS</div>
+                <div class="empty-list">{$dictionary[$locale].CHAT_NO_DIVISIONS}</div>
             {/if}
         </div>
 
         <div class="sidebar-section">
-            <h4 class="section-header">SECURE PRIVATE</h4>
+            <h4 class="section-header">{$dictionary[$locale].CHAT_SECURE_PRIVATE}</h4>
             {#each friends as f}
                 <button class="channel-btn" class:active={currentTab === 'PRIVATE' && targetId === f.id} on:click={() => goto(`/chat?private=${f.id}`)}>
                     @ <span class={f.role === 'ADMIN' ? 'blurred' : ''}>{f.role === 'ADMIN' ? 'XXXXXXXXXX' : f.username.toUpperCase()}</span>
                 </button>
             {/each}
             {#if friends.length === 0}
-                <div class="empty-list">NO ACTIVE CONNECTIONS</div>
+                <div class="empty-list">{$dictionary[$locale].CHAT_NO_CONNECTIONS}</div>
             {/if}
         </div>
     </div>
@@ -328,7 +329,7 @@
     <div class="chat-container">
         <div class="chat-header">
             <h2>
-                // SIBYL SECURE COMMS : {currentTab} 
+                {$dictionary[$locale].CHAT_HEADER_PREFIX} {currentTab} 
                 {#if targetName}
                     {#if currentTab === 'GROUP'}
                         <span class="clickable-group" on:click={() => goto(`/groups/${targetId}`)} title="View Division Details">
@@ -342,18 +343,18 @@
             
             <div class="header-actions" style="display: flex; gap: 10px;">
                 {#if $globalNotificationsEnabled === null}
-                    <button class="sys-btn" on:click={toggleNotifications}>ENABLE DESKTOP ALERTS</button>
+                    <button class="sys-btn" on:click={toggleNotifications}>{$dictionary[$locale].CHAT_ENABLE_NOTIFS}</button>
                 {/if}
 
                 {#if moderationPopupVisible}
                     <div class="moderation-popup" transition:fade>
-                        [ SIBYL SYSTEM NOTIFICATION ]<br>
-                        A transmission has been redacted due to Psycho-Pass clouding. CC penalty applied: <span style="color: #ffaa00;">{moderationPenaltyStr}</span>
+                        {$dictionary[$locale].CHAT_MOD_POPUP_TITLE}<br>
+                        {$dictionary[$locale].CHAT_MOD_POPUP_DESC} <span style="color: #ffaa00;">{moderationPenaltyStr}</span>
                     </div>
                 {/if}
 
                 <button class="action-btn" on:click={toggleNotifications} title="Toggle Desktop Notifications">
-                    {$globalNotificationsEnabled ? '[ NOTIFS: ON ]' : '[ NOTIFS: OFF ]'}
+                    {$globalNotificationsEnabled ? $dictionary[$locale].CHAT_NOTIFS_ON : $dictionary[$locale].CHAT_NOTIFS_OFF}
                 </button>
             </div>
         </div>
@@ -378,12 +379,12 @@
                                 {msg.senderName}
                             </span>
                             {#if msg.senderRole === 'ADMIN'}
-                                <span class="admin-badge">[ SIBYL SYSTEM ]</span>
+                                <span class="admin-badge">{$dictionary[$locale].CHAT_ADMIN_BADGE}</span>
                             {/if}
                             <span class="msg-timestamp">
                                 {new Date(msg.created_at.replace(' ', 'T') + (msg.created_at.includes('Z') ? '' : 'Z')).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                 {#if msg.is_edited}
-                                    <span class="edited-tag">(edited)</span>
+                                    <span class="edited-tag">{$dictionary[$locale].CHAT_EDITED}</span>
                                 {/if}
                             </span>
                         </div>
@@ -397,7 +398,7 @@
 
                         {#if msg.isReadOnce && !msg.read}
                             <button class="decrypt-btn" on:click={() => decryptMessage(msg.id)}>
-                                <span class="icon-eye">👁</span> [ DECRYPT ]
+                                <span class="icon-eye">👁</span> {$dictionary[$locale].CHAT_DECRYPT}
                             </button>
                         {:else}
                             <div class="message-text {getHueClass(msg.senderCC)}">
@@ -432,13 +433,13 @@
 
                         <div class="message-actions">
                             {#if (!msg.isReadOnce || msg.read)}
-                                <button class="mini-btn reply-btn" title="Reply" on:click={() => replyingToMessage = msg}>[R]</button>
+                                <button class="mini-btn reply-btn" title="Reply" on:click={() => replyingToMessage = msg}>{$dictionary[$locale].CHAT_BTN_REPLY}</button>
                             {/if}
                             {#if msg.senderId === currentUser?.id && (!msg.isReadOnce || msg.read)}
-                                <button class="mini-btn edit-btn" title="Edit Message" on:click={() => startEdit(msg)}>[E]</button>
+                                <button class="mini-btn edit-btn" title="Edit Message" on:click={() => startEdit(msg)}>{$dictionary[$locale].CHAT_BTN_EDIT}</button>
                             {/if}
                             {#if msg.senderId === currentUser?.id || currentUser?.role === 'ADMIN'}
-                                <button class="mini-btn delete-btn" title="Delete Message" on:click={() => deleteMessage(msg.id)}>[D]</button>
+                                <button class="mini-btn delete-btn" title="Delete Message" on:click={() => deleteMessage(msg.id)}>{$dictionary[$locale].CHAT_BTN_DELETE}</button>
                             {/if}
                         </div>
                 </div>
@@ -448,19 +449,19 @@
         <div class="chat-input-area">
             {#if replyingToMessage}
                 <div class="reply-banner {getHueClass(replyingToMessage.senderCC)}">
-                    REPLYING TO [{replyingToMessage.senderName}]: "{replyingToMessage.text.substring(0, 30)}..." 
-                    <button class="cancel-btn" on:click={() => replyingToMessage = null}>[ CANCEL ]</button>
+                    {$dictionary[$locale].CHAT_REPLYING_TO} [{replyingToMessage.senderName}]: "{replyingToMessage.text.substring(0, 30)}..." 
+                    <button class="cancel-btn" on:click={() => replyingToMessage = null}>{$dictionary[$locale].CHAT_CANCEL}</button>
                 </div>
             {/if}
             {#if attachmentBase64}
                 <div class="attachment-preview">
                     <img src={attachmentBase64} alt="attachment preview" />
-                    <button class="cancel-btn" on:click={() => { attachmentBase64 = null; attachmentInput.value = ''; }}>[ X ]</button>
+                    <button class="cancel-btn" on:click={() => { attachmentBase64 = null; attachmentInput.value = ''; }}>{$dictionary[$locale].CHAT_CANCEL}</button>
                 </div>
             {/if}
             {#if editingMessageId}
                 <div class="editing-banner">
-                    EDITING MESSAGE... <button class="cancel-btn" on:click={cancelEdit}>[ CANCEL ]</button>
+                    {$dictionary[$locale].CHAT_EDITING} <button class="cancel-btn" on:click={cancelEdit}>{$dictionary[$locale].CHAT_CANCEL}</button>
                 </div>
             {/if}
 
@@ -483,7 +484,7 @@
                         const file = target.files?.[0];
                         if (file) {
                             if (file.size > 2 * 1024 * 1024) {
-                                alert("Transmission failed: Image exceeds 2MB limit.");
+                                alert($dictionary[$locale].CHAT_ERR_IMG_SIZE);
                                 attachmentInput.value = '';
                                 return;
                             }
@@ -493,17 +494,17 @@
                         }
                     }} />
                     <button class="action-btn attach-btn" on:click={() => attachmentInput.click()} title="Attach Image (Max 2MB)">
-                        [ IMG ]
+                        {$dictionary[$locale].CHAT_ATTACH_IMG}
                     </button>
                     <input 
                         type="text" 
                         bind:value={inputText} 
                         maxlength="250"
-                        placeholder="Transmit message... (Max 250 chars)" 
+                        placeholder={$dictionary[$locale].CHAT_INPUT_PLACEHOLDER}
                         on:keydown={(e) => e.key === 'Enter' && sendMessage()}
                     />
                     <button on:click={sendMessage} disabled={sending || !inputText.trim()}>
-                        {editingMessageId ? '[ UPDATE ]' : '[ TRANSMIT ]'}
+                        {editingMessageId ? $dictionary[$locale].CHAT_BTN_UPDATE : $dictionary[$locale].CHAT_BTN_TRANSMIT}
                     </button>
                 </div>
             </div>

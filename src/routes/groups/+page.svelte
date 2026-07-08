@@ -77,7 +77,7 @@
             });
             const data = await res.json();
             if (res.ok) {
-                alert('Successfully requested entry / joined.');
+                alert($dictionary[$locale].GRP_MSG_SUCCESS);
                 await fetchGroups();
             } else {
                 alert(data.error);
@@ -96,7 +96,7 @@
             });
             const d = await res.json();
             if (res.ok) {
-                alert(d.message);
+                alert($dictionary[$locale].GRP_MSG_SUCCESS);
                 await fetchGroups();
             } else {
                 alert(d.error);
@@ -111,41 +111,41 @@
 
 <div class="groups-container">
     <div class="header-row">
-        <h2>// COMPLIANCE DIVISIONS (GROUPS)</h2>
+        <h2>{$dictionary[$locale].GRP_TITLE}</h2>
         {#if !isAlreadyInGroup}
             <button class="create-btn" on:click={() => createMode = !createMode}>
-                {createMode ? '[ CANCEL ]' : '[ CREATE NEW DIVISION ]'}
+                {createMode ? $dictionary[$locale].GRP_BTN_CANCEL : $dictionary[$locale].GRP_BTN_CREATE}
             </button>
         {/if}
     </div>
 
     {#if createMode && !isAlreadyInGroup}
         <div class="create-panel" transition:fade>
-            <h3>ESTABLISH NEW DIVISION</h3>
+            <h3>{$dictionary[$locale].GRP_CREATE_HEADER}</h3>
             <div class="form-group">
-                <label>DIVISION NAME:</label>
-                <input type="text" bind:value={newGroupName} placeholder="e.g. Sector 4 Enforcers" maxlength="50" />
+                <label>{$dictionary[$locale].GRP_LABEL_NAME}</label>
+                <input type="text" bind:value={newGroupName} placeholder={$dictionary[$locale].GRP_PLACEHOLDER_NAME} maxlength="50" />
             </div>
             <div class="form-group">
-                <label>MAXIMUM CRIME COEFFICIENT THRESHOLD:</label>
+                <label>{$dictionary[$locale].GRP_LABEL_MAX_CC}</label>
                 <input type="number" bind:value={newGroupMaxCC} min="0" max="999" />
-                <span class="hint">Citizens exceeding this CC cannot join or communicate.</span>
+                <span class="hint">{$dictionary[$locale].GRP_HINT_MAX_CC}</span>
             </div>
-            <button class="submit-btn" on:click={createGroup}>[ INITIALIZE DIVISION ]</button>
+            <button class="submit-btn" on:click={createGroup}>{$dictionary[$locale].GRP_BTN_INIT}</button>
         </div>
     {/if}
 
     {#if pendingRequests.length > 0}
         <div class="pending-section">
-            <h3>// PENDING INVITES</h3>
+            <h3>{$dictionary[$locale].GRP_PENDING_TITLE}</h3>
             {#each pendingRequests as req}
                 <div class="request-card">
                     <span class="req-info">
-                        <strong>{req.senderName}</strong> invited you to <strong>{req.groupName}</strong> (Max CC: {req.maxCC})
+                        <strong>{req.senderName}</strong> {$dictionary[$locale].GRP_INVITED_YOU} <strong>{req.groupName}</strong> ({$dictionary[$locale].GRP_MAX_CC} {req.maxCC})
                     </span>
                     <div class="req-actions">
-                        <button class="accept-btn" on:click={() => handleRequest(req.id, 'ACCEPT')}>[ ACCEPT ]</button>
-                        <button class="decline-btn" on:click={() => handleRequest(req.id, 'DECLINE')}>[ DECLINE ]</button>
+                        <button class="accept-btn" on:click={() => handleRequest(req.id, 'ACCEPT')}>{$dictionary[$locale].GRP_BTN_ACCEPT}</button>
+                        <button class="decline-btn" on:click={() => handleRequest(req.id, 'DECLINE')}>{$dictionary[$locale].GRP_BTN_DECLINE}</button>
                     </div>
                 </div>
             {/each}
@@ -153,34 +153,34 @@
     {/if}
 
     <div class="search-section">
-        <input type="text" class="search-input" bind:value={searchQuery} placeholder="SEARCH DIVISION REGISTRY..." />
+        <input type="text" class="search-input" bind:value={searchQuery} placeholder={$dictionary[$locale].GRP_SEARCH_PLACEHOLDER} />
     </div>
 
     <div class="group-list">
         {#if loading}
-            <div class="loading">SCANNING REGISTRY...</div>
+            <div class="loading">{$dictionary[$locale].GRP_LOADING}</div>
         {:else if filteredGroups.length === 0}
-            <div class="empty">NO DIVISIONS FOUND.</div>
+            <div class="empty">{$dictionary[$locale].GRP_EMPTY}</div>
         {:else}
             {#each filteredGroups as group}
                 <div class="group-card">
                     <div class="group-info">
                         <h3>{group.name}</h3>
-                        <span class="cc-limit">CC LIMIT: {group.maxCC}</span>
-                        <span class="members-count">MEMBERS: {group.memberCount || 1}</span>
+                        <span class="cc-limit">{$dictionary[$locale].GRP_LIMIT} {group.maxCC}</span>
+                        <span class="members-count">{$dictionary[$locale].GRP_MEMBERS} {group.memberCount || 1}</span>
                     </div>
                     <div class="group-actions">
                         {#if group.isMember}
                             <button class="enter-btn" on:click={() => goto(`/chat?group=${group.id}`)}>
-                                [ ENTER COMM ]
+                                {$dictionary[$locale].GRP_BTN_ENTER}
                             </button>
                         {:else}
                             <button class="join-btn" on:click={() => joinGroup(group.id)}>
-                                [ REQUEST ENTRY ]
+                                {$dictionary[$locale].GRP_BTN_REQUEST}
                             </button>
                         {/if}
                         <button class="details-btn" on:click={() => goto(`/groups/${group.id}`)}>
-                            [ DETAILS ]
+                            {$dictionary[$locale].GRP_BTN_DETAILS}
                         </button>
                     </div>
                 </div>
