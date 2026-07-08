@@ -235,10 +235,10 @@
         const discordStatus = params.get('discord');
         if (discordStatus === 'success') {
             settingsSuccess = true;
-            settingsMessage = "DISCORD IDENTITY SYNCHRONIZED SECURELY.";
+            settingsMessage = $dictionary[$locale].ACC_MSG_SYNC_SUCCESS;
         } else if (discordStatus === 'error') {
             settingsSuccess = false;
-            settingsMessage = "ERROR: DISCORD SYNCHRONIZATION FAILED.";
+            settingsMessage = $dictionary[$locale].ACC_MSG_SYNC_ERROR;
         } else if (discordStatus === 'already_linked') {
             settingsSuccess = false;
             settingsMessage = $dictionary[$locale].ACC_DISCORD_ALREADY_LINKED || "ERROR: THIS DISCORD ACCOUNT IS ALREADY LINKED TO ANOTHER CITIZEN.";
@@ -332,7 +332,7 @@
     }
 
     async function updateProfile() {
-        settingsMessage = "UPDATING CORE LOGS...";
+        settingsMessage = $dictionary[$locale].ACC_MSG_UPDATING;
         settingsSuccess = false;
 
         try {
@@ -351,14 +351,14 @@
 
             if (data.success) {
                 currentUser.set(newUsername);
-                settingsMessage = "PROFILE UPDATED SUCCESSFULLY.";
+                settingsMessage = $dictionary[$locale].ACC_MSG_UPDATE_SUCCESS;
                 settingsSuccess = true;
                 newPassword = '';
             } else {
                 settingsMessage = `ERROR: ${data.message || 'UPDATE_DENIED'}`;
             }
         } catch (err) {
-            settingsMessage = "DATABASE RE-INDEXING FAILED.";
+            settingsMessage = $dictionary[$locale].ACC_MSG_UPDATE_FAILED;
         }
     }
 
@@ -457,19 +457,17 @@
         </div>
 
         <div class="panel card-border">
-            <h2 class="header">// COMPLIANCE CONNECTIONS</h2>
+            <h2 class="header">{$dictionary[$locale].ACC_COMPLIANCE_TITLE}</h2>
 
             <div class="connection-section">
-                <div class="section-desc">
-                    ESTABLISH SECURE TELEMETRY CONNECTIONS WITH OTHER REGISTERED CITIZENS OR ACCESS THE PUBLIC REGISTER DIRECTORY.
-                </div>
+
                 
                 <div class="network-controls-group">
                     <button class="network-btn-panel" on:click={() => goto('/friends')}>
                         {$dictionary[$locale].ACC_BTN_NETWORK}
                     </button>
                     <button class="group-btn-panel" on:click={() => goto('/groups')}>
-                        [ GROUPS ]
+                        {$dictionary[$locale].ACC_BTN_GROUPS}
                     </button>
                     <button class="community-btn-panel" on:click={() => goto('/community')}>
                         {$dictionary[$locale].ACC_BTN_COMMUNITY}
@@ -478,9 +476,9 @@
             </div>
 
             <div class="form" style="margin-bottom: 25px;">
-                <label for="bio">CITIZEN DOSSIER (MAX 50 CHARS)</label>
-                <input id="bio" type="text" bind:value={userBio} autocomplete="off" spellcheck="false" maxlength="50" placeholder="Enter short bio..." />
-                <button class="action-btn" on:click={updateProfile} style="margin-top: 10px;">UPDATE DOSSIER</button>
+                <label for="bio">{$dictionary[$locale].ACC_LABEL_BIO}</label>
+                <input id="bio" type="text" bind:value={userBio} autocomplete="off" spellcheck="false" maxlength="50" placeholder={$dictionary[$locale].ACC_PLACEHOLDER_BIO} />
+                <button class="action-btn" on:click={updateProfile} style="margin-top: 10px;">{$dictionary[$locale].ACC_BTN_UPDATE_BIO}</button>
             </div>
 
             <div class="discord-sync-box" style="margin-top: auto;">
@@ -493,10 +491,10 @@
                         </button>
                     </div>
                     <div class="id-card-section">
-                        <div class="id-card-title">// CITIZEN SECURITY PASS</div>
-                        <div class="id-card-desc">EXPORT A DIGITALLY VERIFIED SIBYL ID HOLOGRAPHIC PASS LOGGING COGNITIVE READINGS.</div>
+                        <div class="id-card-title">{$dictionary[$locale].ACC_ID_CARD_TITLE}</div>
+                        <div class="id-card-desc">{$dictionary[$locale].ACC_ID_CARD_DESC}</div>
                         <button type="button" class="id-card-btn" on:click={generateIDCard}>
-                            GENERATE IDENTITY CARD
+                            {$dictionary[$locale].ACC_BTN_GENERATE_ID}
                         </button>
                         <canvas id="idCardCanvas" width="600" height="360" style="display: none;"></canvas>
                     </div>

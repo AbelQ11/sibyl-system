@@ -109,7 +109,7 @@
     <title>
         {unauthorized 
             ? $dictionary[$locale].CITIZEN_RESTRICTED_TITLE 
-            : `${$dictionary[$locale].CITIZEN_PROFILE_TITLE} // ${username.toUpperCase()}`}
+            : `${$dictionary[$locale].CITIZEN_PROFILE_TITLE} // ${username?.toUpperCase()}`}
     </title>
     <meta name="description" content="Inspect citizen psychological profiles." />
     <meta name="robots" content="noindex, nofollow" />
@@ -120,7 +120,7 @@
 
     {#if loading}
         <div class="loading-panel card-border">
-            <div class="loader-text">CONNECTING TO SIBYL SYSTEM MAIN CORE...</div>
+            <div class="loader-text">{$dictionary[$locale].CITIZEN_CONNECTING}</div>
         </div>
     {:else if unauthorized}
         <div class="restricted-card card-border">
@@ -134,11 +134,11 @@
     {:else}
         <div class="main-card card-border">
             <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin-bottom: 15px;">
-                <h1 class="header" style="border: none; padding: 0; margin: 0;">{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {username.toUpperCase()}</h1>
+                <h1 class="header" style="border: none; padding: 0; margin: 0;">{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {username?.toUpperCase()}</h1>
                 {#if isAdmin}
                     <div class="profile-tabs" style="display: flex; gap: 10px;">
-                        <button class="tab-btn {activeTab === 'DOSSIER' ? 'active' : ''}" on:click={() => activeTab = 'DOSSIER'}>[ DOSSIER ]</button>
-                        <button class="tab-btn {activeTab === 'SURVEILLANCE' ? 'active' : ''}" on:click={() => activeTab = 'SURVEILLANCE'}>[ SURVEILLANCE ]</button>
+                        <button class="tab-btn {activeTab === 'DOSSIER' ? 'active' : ''}" on:click={() => activeTab = 'DOSSIER'}>{$dictionary[$locale].CITIZEN_TAB_DOSSIER}</button>
+                        <button class="tab-btn {activeTab === 'SURVEILLANCE' ? 'active' : ''}" on:click={() => activeTab = 'SURVEILLANCE'}>{$dictionary[$locale].CITIZEN_TAB_SURVEILLANCE}</button>
                     </div>
                 {/if}
             </div>
@@ -147,13 +147,13 @@
 
             {#if activeTab === 'DOSSIER'}
                 <div class="subject-info">
-                <span>{$dictionary[$locale].TRENDS_SUBJECT_ID}: {username.toUpperCase()} ({citizenId || 'SIB-UNKNOWN'})</span>
+                <span>{$dictionary[$locale].TRENDS_SUBJECT_ID}: {username?.toUpperCase()} ({citizenId || 'SIB-UNKNOWN'})</span>
                 <span>{$dictionary[$locale].TRENDS_SYSTEM_STATUS}: {$dictionary[$locale].TRENDS_STATUS_CONNECTED}</span>
             </div>
 
             <div class="dashboard-grid">
                 <div class="panel card-border">
-                    <h2 class="sub-header">// CITIZEN LOGISTICS</h2>
+                    <h2 class="sub-header">{$dictionary[$locale].CITIZEN_LOGISTICS}</h2>
                     <div class="avatar-section">
                         <div class="avatar-frame">
                             {#if avatar}
@@ -163,22 +163,22 @@
                             {/if}
                         </div>
                         <div class="bio-meta">
-                            <span class="bio-label">CITIZEN COGNITIVE SIGNATURE</span>
-                            <span class="bio-value">{username.toUpperCase()}</span>
-                            <span class="bio-label">SYSTEM ID ADDRESS</span>
+                            <span class="bio-label">{$dictionary[$locale].CITIZEN_SIG}</span>
+                            <span class="bio-value">{username?.toUpperCase()}</span>
+                            <span class="bio-label">{$dictionary[$locale].CITIZEN_SYS_ID}</span>
                             <span class="bio-value">{citizenId || 'SIB-UNKNOWN'}</span>
                         </div>
                     </div>
                     
                     {#if bio}
                         <div class="citizen-bio">
-                            <span class="bio-label">CITIZEN DOSSIER:</span>
+                            <span class="bio-label">{$dictionary[$locale].CITIZEN_DOSSIER_LABEL}</span>
                             <p class="bio-text">"{bio}"</p>
                         </div>
                     {/if}
 
                     <div class="cc-readout">
-                        <span class="readout-label">LATEST CRIME COEFFICIENT READOUT:</span>
+                        <span class="readout-label">{$dictionary[$locale].CITIZEN_LATEST_CC}</span>
                         <div class="cc-number" class:stable={lastCC < 100} class:warning={lastCC >= 100 && lastCC < 300} class:lethal={lastCC >= 300}>
                             {lastCC}
                         </div>
@@ -231,10 +231,10 @@
             {:else if activeTab === 'SURVEILLANCE'}
                 <div class="surveillance-container" style="display: flex; gap: 20px; height: 100%;">
                     <div class="surveillance-sidebar card-border" style="width: 250px; background: #050505; display: flex; flex-direction: column;">
-                        <h2 class="sub-header" style="margin: 15px;">// CONTACTS</h2>
+                        <h2 class="sub-header" style="margin: 15px;">{$dictionary[$locale].CITIZEN_CONTACTS}</h2>
                         <div class="contacts-list" style="flex: 1; overflow-y: auto;">
                             {#if surveillanceData.length === 0}
-                                <div style="padding: 15px; font-size: 0.8rem; color: #666; font-style: italic;">NO PRIVATE COMMS DETECTED</div>
+                                <div style="padding: 15px; font-size: 0.8rem; color: #666; font-style: italic;">{$dictionary[$locale].CITIZEN_NO_COMMS}</div>
                             {/if}
                             {#each surveillanceData as conv}
                                 <button 
@@ -251,7 +251,7 @@
                     <div class="surveillance-chat card-border" style="flex: 1; background: #050505; display: flex; flex-direction: column; position: relative;">
                         {#if activeSurveillanceContact !== null}
                             {@const activeConv = surveillanceData.find(c => c.otherUserId === activeSurveillanceContact)}
-                            <h2 class="sub-header" style="margin: 15px;">// INTERCEPTED CHAT: {username.toUpperCase()} &lt;-&gt; {activeConv.otherUsername.toUpperCase()}</h2>
+                            <h2 class="sub-header" style="margin: 15px;">{$dictionary[$locale].CITIZEN_INTERCEPTED}: {username?.toUpperCase()} &lt;-&gt; {activeConv.otherUsername?.toUpperCase()}</h2>
                             
                             <div class="chat-history" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
                                 {#each activeConv.messages as msg}
@@ -265,7 +265,7 @@
                             </div>
                         {:else}
                             <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(0,255,204,0.3); letter-spacing: 2px;">
-                                SELECT A CONTACT TO MONITOR
+                                {$dictionary[$locale].CITIZEN_SELECT_MONITOR}
                             </div>
                         {/if}
                     </div>
@@ -278,11 +278,11 @@
 
             {#if $currentUser === $page.data.adminAccountId}
                 <div class="admin-controls card-border" style="margin-top: 25px;">
-                    <h2 class="sub-header" style="color: #ff3333; border-bottom-color: #ff3333;">&gt;&gt; SYSTEM ADMINISTRATOR OVERRIDE</h2>
+                    <h2 class="sub-header" style="color: #ff3333; border-bottom-color: #ff3333;">{$dictionary[$locale].CITIZEN_ADMIN_OVERRIDE}</h2>
                     <div class="admin-buttons" style="display: flex; gap: 15px;">
-                        <button class="admin-btn erase-data" on:click={() => adminAction('ERASE_DATA')}>ERASE TELEMETRY DATA</button>
-                        <button class="admin-btn toggle-privacy" on:click={() => adminAction('TOGGLE_PRIVACY')}>TOGGLE PRIVACY</button>
-                        <button class="admin-btn erase-account" on:click={() => adminAction('ERASE_ACCOUNT')}>ERASE CITIZEN ACCOUNT</button>
+                        <button class="admin-btn erase-data" on:click={() => adminAction('ERASE_DATA')}>{$dictionary[$locale].CITIZEN_ADMIN_ERASE_DATA}</button>
+                        <button class="admin-btn toggle-privacy" on:click={() => adminAction('TOGGLE_PRIVACY')}>{$dictionary[$locale].CITIZEN_ADMIN_TOGGLE_PRIV}</button>
+                        <button class="admin-btn erase-account" on:click={() => adminAction('ERASE_ACCOUNT')}>{$dictionary[$locale].CITIZEN_ADMIN_ERASE_ACC}</button>
                     </div>
                 </div>
             {/if}
