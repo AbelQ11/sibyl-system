@@ -96,11 +96,6 @@ The project includes a Discord bot companion located in the `sibyl-bot/` directo
 * `/inspect <query>`: Query citizen profiles and check their psychological/diagnostic records. Only public profiles are inspectable unless the requesting Discord ID is linked to a SIBYL `ADMIN` profile.
 * `/id <query>`: Generates and returns a beautiful, verified SIBYL citizen pass holographic ID card image matching the website design. The card dynamically renders the citizen's **average** Crime Coefficient & Hue, synced Discord profile name, and custom Base64 uploaded avatar.
 
-### Chat & Sync Features
-* **Global Announcements**: Messages sent by the SIBYL Admin on the website are broadcast universally into Discord.
-* **Cross-Platform Sync**: Chat rooms on the website (Public & Groups) automatically synchronize in real-time with corresponding Discord text channels.
-* **Threat Alerts**: If a citizen's Crime Coefficient spikes over 300, the bot will automatically ping the `@Enforcer` and `@Inspector` roles in Discord (provided the user's privacy settings allow data sharing).
-
 ---
 
 ## Technology Stack & Libraries
