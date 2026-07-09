@@ -330,12 +330,12 @@
     .cc-display { font-size: 1.5rem; margin: 10px 0; font-weight: bold; }
     
     .status { font-weight: bold; }
-    .status.optimal { color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
+    .status.optimal { color: var(--main-color, #00ffcc); text-shadow: 0 0 10px var(--main-color, #00ffcc); }
     .status.warning { color: #ffaa00; text-shadow: 0 0 10px #ffaa00; }
     .status.lethal { color: #ff0044; text-shadow: 0 0 10px #ff0044; }
     .lethal { color: #ff0044; text-shadow: 0 0 10px #ff0044; }
 
-    .telemetry { font-size: 0.8rem; margin: 4px 0; color: #00ffcc; opacity: 0.8; }
+    .telemetry { font-size: 0.8rem; margin: 4px 0; color: var(--main-color, #00ffcc); opacity: 0.8; }
     .telemetry.warning { color: #ff3333; font-weight: bold; animation: blink 0.5s infinite; }
 
     button { z-index: 30; padding: 15px 30px; background: rgba(0, 255, 255, 0.02); border: 1px solid #0ff; color: #0ff; cursor: pointer; letter-spacing: 2px; transition: all 0.2s ease; font-family: inherit; font-size: 0.9rem; }
@@ -366,10 +366,10 @@
         min-width: 320px;
     }
     .diag-title {
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         font-weight: bold;
         margin-bottom: 10px;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.4);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.4));
     }
     .report-box.border-warning .diag-title {
         color: #ffaa00;
@@ -396,8 +396,8 @@
     .diagnostic-reason {
         font-size: 0.75rem;
         line-height: 1.4;
-        color: #00ffcc;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
+        color: var(--main-color, #00ffcc);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3));
         margin: 10px 0 0 0;
     }
     .diagnostic-reason.warning {

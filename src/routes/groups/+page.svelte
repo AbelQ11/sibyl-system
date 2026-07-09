@@ -194,32 +194,32 @@
         max-width: 800px;
         margin: 20px auto;
         font-family: 'Courier New', Courier, monospace;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
     }
-    .header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #00ffcc; padding-bottom: 10px; margin-bottom: 20px; }
-    .create-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 15px; cursor: pointer; }
-    .create-btn:hover { background: #00ffcc; color: #000; }
+    .header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--main-color, #00ffcc); padding-bottom: 10px; margin-bottom: 20px; }
+    .create-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px 15px; cursor: pointer; }
+    .create-btn:hover { background: var(--main-color, #00ffcc); color: #000; }
 
-    .create-panel { background: rgba(0, 255, 204, 0.05); border: 1px dashed #00ffcc; padding: 20px; margin-bottom: 20px; }
+    .create-panel { background: var(--border-color, rgba(0, 255, 204, 0.05)); border: 1px dashed var(--main-color, #00ffcc); padding: 20px; margin-bottom: 20px; }
     .form-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
-    input { background: transparent; border: 1px solid #00ffcc; color: #fff; padding: 10px; font-family: inherit; }
+    input { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: #fff; padding: 10px; font-family: inherit; }
     .hint { font-size: 0.8rem; opacity: 0.7; }
-    .submit-btn { background: #00ffcc; color: #000; font-weight: bold; padding: 10px 20px; border: none; cursor: pointer; }
+    .submit-btn { background: var(--main-color, #00ffcc); color: #000; font-weight: bold; padding: 10px 20px; border: none; cursor: pointer; }
 
     .group-list { display: flex; flex-direction: column; gap: 15px; }
-    .group-card { display: flex; justify-content: space-between; align-items: center; background: rgba(5, 5, 5, 0.8); border: 1px solid rgba(0, 255, 204, 0.3); padding: 15px; }
+    .group-card { display: flex; justify-content: space-between; align-items: center; background: rgba(5, 5, 5, 0.8); border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding: 15px; }
     .group-info { display: flex; flex-direction: column; gap: 5px; }
     .group-info h3 { margin: 0; color: #fff; font-size: 1.1rem; }
     .cc-limit { color: #ffaa00; font-size: 0.9rem; }
     .members-count { color: #888; font-size: 0.8rem; }
     
     .search-section { margin-bottom: 20px; }
-    .search-input { width: 100%; padding: 10px; background: rgba(0, 255, 204, 0.05); border: 1px solid #00ffcc; color: #fff; font-family: inherit; font-size: 1.1rem; box-sizing: border-box; }
-    .search-input:focus { outline: none; box-shadow: 0 0 10px rgba(0, 255, 204, 0.2); }
+    .search-input { width: 100%; padding: 10px; background: var(--border-color, rgba(0, 255, 204, 0.05)); border: 1px solid var(--main-color, #00ffcc); color: #fff; font-family: inherit; font-size: 1.1rem; box-sizing: border-box; }
+    .search-input:focus { outline: none; box-shadow: 0 0 10px var(--border-color, rgba(0, 255, 204, 0.2)); }
 
     .group-actions { display: flex; gap: 10px; }
-    .enter-btn, .join-btn, .details-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 10px; font-family: inherit; font-weight: bold; cursor: pointer; transition: all 0.2s; }
-    .enter-btn:hover, .join-btn:hover, .details-btn:hover { background: #00ffcc; color: #000; }
+    .enter-btn, .join-btn, .details-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px 10px; font-family: inherit; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+    .enter-btn:hover, .join-btn:hover, .details-btn:hover { background: var(--main-color, #00ffcc); color: #000; }
 
     .pending-section { margin-bottom: 20px; border: 1px dashed #ffaa00; padding: 15px; background: rgba(255, 170, 0, 0.05); }
     .pending-section h3 { color: #ffaa00; margin-top: 0; }
@@ -227,8 +227,8 @@
     .request-card:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .req-info { color: #eee; }
     .req-actions { display: flex; gap: 10px; }
-    .accept-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 10px; cursor: pointer; }
-    .accept-btn:hover { background: #00ffcc; color: #000; }
+    .accept-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px 10px; cursor: pointer; }
+    .accept-btn:hover { background: var(--main-color, #00ffcc); color: #000; }
     .decline-btn { background: transparent; border: 1px solid #ff3333; color: #ff3333; padding: 5px 10px; cursor: pointer; }
     .decline-btn:hover { background: #ff3333; color: #000; }
 </style>

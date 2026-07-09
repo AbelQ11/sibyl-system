@@ -6,6 +6,7 @@
     import { fade } from 'svelte/transition';
     import { browser } from '$app/environment';
     import { globalNotificationsEnabled, latestSSEEvent } from '$lib/stores';
+    import VoicePlayer from '$lib/components/VoicePlayer.svelte';
 
     export let data: any;
     const currentUser = data?.user;
@@ -30,10 +31,198 @@
     let moderationPopupVisible = false;
     let moderationPenaltyStr = '';
 
+    let isRecording = false;
+    let mediaRecorder: MediaRecorder | null = null;
+    let audioChunks: Blob[] = [];
+
+    async function toggleRecording() {
+        if (isRecording) {
+            mediaRecorder?.stop();
+            isRecording = false;
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = e => {
+                if (e.data.size > 0) audioChunks.push(e.data);
+            };
+            
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                stream.getTracks().forEach(track => track.stop());
+                
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    attachmentBase64 = evt.target?.result as string;
+                };
+                reader.readAsDataURL(audioBlob);
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+        } catch(e) {
+            console.error("Microphone error", e);
+            alert("Failed to access microphone. Please check permissions.");
+        }
+    }
+
     function showModerationPopup(penaltyText: string) {
         moderationPenaltyStr = penaltyText;
         moderationPopupVisible = true;
         setTimeout(() => moderationPopupVisible = false, 5000);
+    }
+
+    let inCall = false;
+    let localStream: MediaStream | null = null;
+    let peerConnections: Record<number, RTCPeerConnection> = {};
+    let remoteStreams: Record<number, MediaStream> = {};
+    let activeCallGroup: number | null = null;
+    let activeCallPrivate: number | null = null;
+    let incomingCallGroup: number | null = null;
+    let incomingCallPrivate: number | null = null;
+    let pendingOffers: any[] = [];
+
+    const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    async function signalWebRTC(targetId: number | null, signalType: string, signalData: any, targetGroupId: number | null = null) {
+        await fetch('/api/webrtc/signal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetId, targetGroupId, signalType, signalData })
+        });
+    }
+
+    function createPeerConnection(peerId: number) {
+        if (peerConnections[peerId]) return peerConnections[peerId];
+        const pc = new RTCPeerConnection(iceServers);
+        peerConnections[peerId] = pc;
+        if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream!));
+        pc.onicecandidate = event => {
+            if (event.candidate) signalWebRTC(peerId, 'ice-candidate', event.candidate);
+        };
+        pc.ontrack = event => {
+            remoteStreams[peerId] = event.streams[0];
+            remoteStreams = { ...remoteStreams };
+        };
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+                delete peerConnections[peerId];
+                delete remoteStreams[peerId];
+                peerConnections = { ...peerConnections };
+                remoteStreams = { ...remoteStreams };
+            }
+        };
+        return pc;
+    }
+
+    async function joinCall() {
+        if (inCall) return;
+        if (currentTab === 'GROUP' && Object.keys(peerConnections).length >= 9) {
+            alert("Call is full (Limit 10)");
+            return;
+        }
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            inCall = true;
+            activeCallGroup = currentTab === 'GROUP' ? targetId : null;
+            activeCallPrivate = currentTab === 'PRIVATE' ? targetId : null;
+
+            for (const offerData of pendingOffers) {
+                const { peerId, payload } = offerData;
+                const pc = createPeerConnection(peerId);
+                await pc.setRemoteDescription(new RTCSessionDescription(payload));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                signalWebRTC(peerId, 'answer', answer);
+            }
+            pendingOffers = [];
+            incomingCallGroup = null;
+            incomingCallPrivate = null;
+
+            signalWebRTC(currentTab === 'PRIVATE' ? targetId : null, 'join-ping', {}, currentTab === 'GROUP' ? targetId : null);
+        } catch (e) {
+            console.error("Audio error", e);
+            alert("Could not access microphone.");
+        }
+    }
+
+    function endCall() {
+        inCall = false;
+        activeCallGroup = null;
+        activeCallPrivate = null;
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+        }
+        Object.values(peerConnections).forEach(pc => pc.close());
+        peerConnections = {};
+        remoteStreams = {};
+        pendingOffers = [];
+        signalWebRTC(currentTab === 'PRIVATE' ? targetId : null, 'end-call', {}, currentTab === 'GROUP' ? targetId : null);
+    }
+
+    async function handleWebRTCSignal(data: any) {
+        const peerId = data.senderId;
+        const type = data.signalType;
+        const payload = data.signalData;
+        const targetGroupId = data.targetGroupId;
+
+        if (peerId === currentUser.id) return;
+
+        if (type === 'join-ping') {
+            if (inCall && ((targetGroupId && targetGroupId === activeCallGroup) || (!targetGroupId && peerId === activeCallPrivate))) {
+                if (currentTab === 'GROUP' && Object.keys(peerConnections).length >= 9) return;
+                const pc = createPeerConnection(peerId);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                signalWebRTC(peerId, 'offer', offer);
+            } else if (!inCall) {
+                if (targetGroupId) incomingCallGroup = targetGroupId;
+                else incomingCallPrivate = peerId;
+            }
+        } else if (type === 'offer') {
+            if (inCall) {
+                if (currentTab === 'GROUP' && Object.keys(peerConnections).length >= 9 && !peerConnections[peerId]) return;
+                const pc = createPeerConnection(peerId);
+                const isPolite = peerId > currentUser.id;
+                const isStable = pc.signalingState === 'stable';
+                if (!isStable && !isPolite) return;
+                await pc.setRemoteDescription(new RTCSessionDescription(payload));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                signalWebRTC(peerId, 'answer', answer);
+            } else {
+                pendingOffers.push({ peerId, payload });
+                if (targetGroupId) incomingCallGroup = targetGroupId;
+                else incomingCallPrivate = peerId;
+            }
+        } else if (type === 'answer') {
+            if (inCall && peerConnections[peerId]) await peerConnections[peerId].setRemoteDescription(new RTCSessionDescription(payload));
+        } else if (type === 'ice-candidate') {
+            if (inCall && peerConnections[peerId]) await peerConnections[peerId].addIceCandidate(new RTCIceCandidate(payload));
+        } else if (type === 'end-call') {
+            if (peerConnections[peerId]) {
+                peerConnections[peerId].close();
+                delete peerConnections[peerId];
+                delete remoteStreams[peerId];
+                remoteStreams = { ...remoteStreams };
+            }
+            pendingOffers = pendingOffers.filter(o => o.peerId !== peerId);
+            if (Object.keys(peerConnections).length === 0) {
+                incomingCallGroup = null;
+                incomingCallPrivate = null;
+            }
+        }
+    }
+
+    function bindStream(node: HTMLMediaElement, stream: MediaStream) {
+        node.srcObject = stream;
+        return {
+            update(newStream: MediaStream) { node.srcObject = newStream; }
+        };
     }
 
     $: {
@@ -121,6 +310,8 @@
                 messages[idx].reactions = eventData.reactions;
                 messages = [...messages];
             }
+        } else if (eventData.type === 'webrtc_signal') {
+            handleWebRTCSignal(eventData);
         }
     }
 
@@ -175,7 +366,11 @@
     }
 
     async function sendMessage() {
-        if (!inputText.trim() || sending) return;
+        let sendText = inputText.trim();
+        if (!sendText && attachmentBase64 && attachmentBase64.startsWith('data:audio')) {
+            sendText = '[ VOICE TRANSMISSION ]';
+        }
+        if (!sendText || sending) return;
         sending = true;
 
         if (editingMessageId) {
@@ -183,7 +378,7 @@
                 const res = await fetch('/api/chat/edit', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messageId: editingMessageId, text: inputText })
+                    body: JSON.stringify({ messageId: editingMessageId, text: sendText })
                 });
                 if (!res.ok) {
                     const d = await res.json();
@@ -202,7 +397,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: inputText,
+                    text: sendText,
                     targetType: currentTab,
                     targetId: targetId,
                     isReadOnce,
@@ -342,6 +537,16 @@
             </h2>
             
             <div class="header-actions" style="display: flex; gap: 10px;">
+                {#if currentTab === 'GROUP' || currentTab === 'PRIVATE'}
+                    {#if inCall}
+                        <button class="sys-btn" style="background:#ff3333; color:#fff;" on:click={endCall}>[ HANG UP ({Object.keys(peerConnections).length + 1}) ]</button>
+                    {:else if (currentTab === 'GROUP' && incomingCallGroup === targetId) || (currentTab === 'PRIVATE' && incomingCallPrivate === targetId)}
+                        <button class="sys-btn" style="background:var(--main-color, #00ffcc); color:#000;" on:click={joinCall}>[ JOIN CALL ]</button>
+                    {:else}
+                        <button class="action-btn" on:click={joinCall}>[ START CALL ]</button>
+                    {/if}
+                {/if}
+
                 {#if $globalNotificationsEnabled === null}
                     <button class="sys-btn" on:click={toggleNotifications}>{$dictionary[$locale].CHAT_ENABLE_NOTIFS}</button>
                 {/if}
@@ -359,14 +564,22 @@
             </div>
         </div>
 
+        <div style="display: none;">
+            {#each Object.entries(remoteStreams) as [peerId, stream] (peerId)}
+                <audio autoplay use:bindStream={stream}></audio>
+            {/each}
+        </div>
+
         <div class="chat-history">
             {#each visibleMessages as msg (msg.id)}
                 <div class="message-row {msg.senderRole === 'ADMIN' ? 'admin-msg' : ''}" transition:fade>
-                    {#if msg.senderAvatar}
-                        <img src={msg.senderAvatar} alt="avatar" class="chat-avatar" class:clickable-avatar={msg.senderRole !== 'ADMIN'} on:click={() => { if(msg.senderRole !== 'ADMIN') goto('/citizen/' + msg.senderName) }} />
-                    {:else}
-                        <div class="chat-avatar blank" class:clickable-avatar={msg.senderRole !== 'ADMIN'} on:click={() => { if(msg.senderRole !== 'ADMIN') goto('/citizen/' + msg.senderName) }}></div>
-                    {/if}
+                    <div class="avatar-wrapper {msg.senderAvatarBorder || ''}">
+                        {#if msg.senderAvatar}
+                            <img src={msg.senderAvatar} alt="avatar" class="chat-avatar" class:clickable-avatar={msg.senderRole !== 'ADMIN'} on:click={() => { if(msg.senderRole !== 'ADMIN') goto('/citizen/' + msg.senderName) }} />
+                        {:else}
+                            <div class="chat-avatar blank" class:clickable-avatar={msg.senderRole !== 'ADMIN'} on:click={() => { if(msg.senderRole !== 'ADMIN') goto('/citizen/' + msg.senderName) }}></div>
+                        {/if}
+                    </div>
 
                     <div class="message-content">
                         <div class="message-meta">
@@ -375,7 +588,7 @@
                             {:else if msg.senderGroupName}
                                 <span class="group-tag">[{msg.senderGroupName}]</span>
                             {/if}
-                            <span class="sender-name {getHueClass(msg.senderCC)}" class:blurred={msg.senderRole === 'ADMIN'}>
+                            <span class="sender-name {getHueClass(msg.senderCC)} {msg.senderNameEffect || ''}" class:blurred={msg.senderRole === 'ADMIN'} data-text={msg.senderName}>
                                 {msg.senderName}
                             </span>
                             {#if msg.senderRole === 'ADMIN'}
@@ -405,7 +618,11 @@
                                 {msg.text}
                             </div>
                             {#if msg.attachment}
-                                <img src={msg.attachment} alt="attachment" class="msg-attachment-img" />
+                                {#if msg.attachment.startsWith('data:audio')}
+                                    <VoicePlayer src={msg.attachment} />
+                                {:else}
+                                    <img src={msg.attachment} alt="attachment" class="msg-attachment-img" />
+                                {/if}
                             {/if}
                             <div class="reactions">
                                 {#each Object.entries(groupReactions(msg.reactions)) as [emoji, users]}
@@ -455,8 +672,12 @@
             {/if}
             {#if attachmentBase64}
                 <div class="attachment-preview">
-                    <img src={attachmentBase64} alt="attachment preview" />
-                    <button class="cancel-btn" on:click={() => { attachmentBase64 = null; attachmentInput.value = ''; }}>{$dictionary[$locale].CHAT_CANCEL}</button>
+                    {#if attachmentBase64.startsWith('data:audio')}
+                        <VoicePlayer src={attachmentBase64} />
+                    {:else}
+                        <img src={attachmentBase64} alt="attachment preview" />
+                    {/if}
+                    <button class="cancel-btn" on:click={() => { attachmentBase64 = null; if (attachmentInput) attachmentInput.value = ''; }}>{$dictionary[$locale].CHAT_CANCEL}</button>
                 </div>
             {/if}
             {#if editingMessageId}
@@ -483,7 +704,7 @@
                         const target = e.target as HTMLInputElement;
                         const file = target.files?.[0];
                         if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
+                            if (file.size > 4 * 1024 * 1024) {
                                 alert($dictionary[$locale].CHAT_ERR_IMG_SIZE);
                                 attachmentInput.value = '';
                                 return;
@@ -493,9 +714,14 @@
                             reader.readAsDataURL(file);
                         }
                     }} />
-                    <button class="action-btn attach-btn" on:click={() => attachmentInput.click()} title="Attach Image (Max 2MB)">
+                    <button class="action-btn attach-btn" on:click={() => attachmentInput.click()} title="Attach Image (Max 4MB)">
                         {$dictionary[$locale].CHAT_ATTACH_IMG}
                     </button>
+                    {#if currentTab === 'GROUP' || currentTab === 'PRIVATE'}
+                        <button class="action-btn attach-btn {isRecording ? 'recording' : ''}" on:click={toggleRecording} title="Record Voice">
+                            {isRecording ? '[ STOP ]' : '[ MIC ]'}
+                        </button>
+                    {/if}
                     <input 
                         type="text" 
                         bind:value={inputText} 
@@ -503,7 +729,7 @@
                         placeholder={$dictionary[$locale].CHAT_INPUT_PLACEHOLDER}
                         on:keydown={(e) => e.key === 'Enter' && sendMessage()}
                     />
-                    <button on:click={sendMessage} disabled={sending || !inputText.trim()}>
+                    <button on:click={sendMessage} disabled={sending || (!inputText.trim() && !(attachmentBase64 && attachmentBase64.startsWith('data:audio')))}>
                         {editingMessageId ? $dictionary[$locale].CHAT_BTN_UPDATE : $dictionary[$locale].CHAT_BTN_TRANSMIT}
                     </button>
                 </div>
@@ -523,20 +749,20 @@
         max-width: 1200px;
         margin: 20px auto;
         background: rgba(5, 5, 5, 0.95);
-        border: 1px solid #00ffcc;
-        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        border: 1px solid var(--main-color, #00ffcc);
+        box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1));
         font-family: 'Courier New', Courier, monospace;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
     }
 
     /* SIDEBAR */
     .sidebar {
         width: 250px;
-        border-right: 1px solid rgba(0, 255, 204, 0.3);
+        border-right: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         display: flex;
         flex-direction: column;
         padding: 15px;
-        background: rgba(0, 255, 204, 0.02);
+        background: var(--border-color, rgba(0, 255, 204, 0.02));
         overflow-y: auto;
     }
     .sidebar-title { margin: 0 0 20px 0; font-size: 1.2rem; letter-spacing: 1px; }
@@ -549,15 +775,15 @@
         text-align: left;
         background: transparent;
         border: 1px solid transparent;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         padding: 8px 10px;
         cursor: pointer;
         font-family: inherit;
         font-size: 0.9rem;
         transition: all 0.2s;
     }
-    .channel-btn:hover { background: rgba(0, 255, 204, 0.1); border: 1px solid rgba(0, 255, 204, 0.3); }
-    .channel-btn.active { background: #00ffcc; color: #000; font-weight: bold; }
+    .channel-btn:hover { background: var(--border-color, rgba(0, 255, 204, 0.1)); border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); }
+    .channel-btn.active { background: var(--main-color, #00ffcc); color: #000; font-weight: bold; }
     .empty-list { font-size: 0.8rem; color: #666; padding-left: 10px; font-style: italic; }
 
     /* CHAT CONTAINER */
@@ -570,7 +796,7 @@
 
     .chat-header {
         padding: 15px 20px;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -578,8 +804,8 @@
     }
     .chat-header h2 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 10px; }
     
-    .clickable-group { cursor: pointer; transition: color 0.2s; color: #00ffcc; text-decoration: underline; text-underline-offset: 4px; }
-    .clickable-group:hover { color: #fff; text-shadow: 0 0 10px #00ffcc; }
+    .clickable-group { cursor: pointer; transition: color 0.2s; color: var(--main-color, #00ffcc); text-decoration: underline; text-underline-offset: 4px; }
+    .clickable-group:hover { color: #fff; text-shadow: 0 0 10px var(--main-color, #00ffcc); }
 
     .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
     
@@ -589,10 +815,10 @@
     .sys-btn:hover { background: #ff3333; color: #fff; }
 
     .invite-dropdown {
-        position: absolute; right: 0; top: 100%; margin-top: 10px; background: #050505; border: 1px solid #00ffcc; padding: 10px; display: flex; gap: 10px; z-index: 100; box-shadow: 0 0 15px rgba(0,0,0,0.8);
+        position: absolute; right: 0; top: 100%; margin-top: 10px; background: var(--bg-color, #050505); border: 1px solid var(--main-color, #00ffcc); padding: 10px; display: flex; gap: 10px; z-index: 100; box-shadow: 0 0 15px rgba(0,0,0,0.8);
     }
-    .invite-dropdown select { background: transparent; border: 1px solid #00ffcc; color: #fff; padding: 5px; outline: none; }
-    .invite-dropdown button { background: #00ffcc; color: #000; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer; }
+    .invite-dropdown select { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: #fff; padding: 5px; outline: none; }
+    .invite-dropdown button { background: var(--main-color, #00ffcc); color: #000; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer; }
 
     .chat-history {
         flex: 1;
@@ -602,7 +828,7 @@
         flex-direction: column;
         gap: 15px;
         scrollbar-width: thin;
-        scrollbar-color: rgba(0, 255, 204, 0.4) rgba(0, 0, 0, 0.5);
+        scrollbar-color: var(--main-glow, rgba(0, 255, 204, 0.4)) rgba(0, 0, 0, 0.5);
     }
 
     .chat-history::-webkit-scrollbar {
@@ -611,14 +837,14 @@
     }
     .chat-history::-webkit-scrollbar-track {
         background: rgba(0, 0, 0, 0.5);
-        border-left: 1px solid rgba(0, 255, 204, 0.1);
+        border-left: 1px solid var(--border-color, rgba(0, 255, 204, 0.1));
     }
     .chat-history::-webkit-scrollbar-thumb {
-        background: rgba(0, 255, 204, 0.4);
+        background: var(--main-glow, rgba(0, 255, 204, 0.4));
         border-radius: 4px;
     }
     .chat-history::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 255, 204, 0.8);
+        background: var(--main-glow, rgba(0, 255, 204, 0.8));
     }
 
     .message-row { display: flex; gap: 15px; align-items: flex-start; position: relative; }
@@ -626,10 +852,10 @@
     
     .admin-msg { background: rgba(255, 0, 0, 0.1); padding: 10px; border: 1px dashed #ff3333; }
     
-    .chat-avatar { width: 40px; height: 40px; border: 1px solid #00ffcc; object-fit: cover; }
-    .chat-avatar.blank { background: rgba(0, 255, 204, 0.2); }
+    .chat-avatar { width: 40px; height: 40px; border: 1px solid var(--main-color, #00ffcc); object-fit: cover; }
+    .chat-avatar.blank { background: var(--border-color, rgba(0, 255, 204, 0.2)); }
     .clickable-avatar { cursor: pointer; transition: all 0.2s; }
-    .clickable-avatar:hover { box-shadow: 0 0 10px #00ffcc; filter: brightness(1.2); }
+    .clickable-avatar:hover { box-shadow: 0 0 10px var(--main-color, #00ffcc); filter: brightness(1.2); }
 
     .message-content { flex: 1; min-width: 0; }
     .message-meta { margin-bottom: 5px; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -637,7 +863,7 @@
     .msg-timestamp { font-size: 0.7rem; color: #555; font-weight: normal; margin-left: 5px; }
     .edited-tag { color: #ffaa00; font-size: 0.65rem; margin-left: 3px; }
 
-    .hue-optimal { color: #00ffcc; text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); }
+    .hue-optimal { color: var(--main-color, #00ffcc); text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5)); }
     .hue-warning { color: #ffaa00; text-shadow: 0 0 5px rgba(255, 170, 0, 0.5); }
     .hue-critical { color: #ff3333; text-shadow: 0 0 5px rgba(255, 51, 51, 0.5); }
 
@@ -651,41 +877,44 @@
     .mini-btn { background: transparent; border: none; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: bold; }
     .edit-btn { color: #ffaa00; } .edit-btn:hover { text-shadow: 0 0 8px #ffaa00; }
     .delete-btn { color: #ff3333; } .delete-btn:hover { text-shadow: 0 0 8px #ff3333; }
-    .reply-btn { color: #00ffcc; } .reply-btn:hover { text-shadow: 0 0 8px #00ffcc; }
+    .reply-btn { color: var(--main-color, #00ffcc); } .reply-btn:hover { text-shadow: 0 0 8px var(--main-color, #00ffcc); }
     
     .reply-block { font-size: 0.8rem; border-left: 2px solid; padding-left: 10px; margin-bottom: 5px; opacity: 0.8; font-style: italic; }
     .reply-sender { font-weight: bold; margin-right: 5px; }
 
     .reply-banner { font-size: 0.8rem; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border: 1px dashed; padding: 5px 10px; }
     
-    .attachment-preview { position: relative; display: inline-block; margin-bottom: 10px; border: 1px solid #00ffcc; }
+    .attachment-preview { position: relative; display: inline-block; margin-bottom: 10px; border: 1px solid var(--main-color, #00ffcc); }
     .attachment-preview img { max-height: 100px; display: block; }
     .attachment-preview .cancel-btn { position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.8); padding: 2px 5px; border: none; color: #ff3333; cursor: pointer; }
 
-    .msg-attachment-img { max-width: 100%; max-height: 300px; margin-top: 10px; border: 1px solid rgba(0, 255, 204, 0.3); border-radius: 4px; }
+    .msg-attachment-img { max-width: 100%; max-height: 300px; margin-top: 10px; border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); border-radius: 4px; }
 
-    .attach-btn { border-color: #00ffcc; color: #00ffcc; padding: 0 10px; display: flex; align-items: center; height: 45px; margin-right: 5px; }
-    .attach-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px rgba(0, 255, 204, 0.5); }
+    .attach-btn { border-color: var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 0 10px; display: flex; align-items: center; height: 45px; margin-right: 5px; }
+    .attach-btn:hover { background: var(--main-color, #00ffcc); color: #000; box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.5)); }
+    .attach-btn.recording { background: #ff3333; color: #fff; border-color: #ff3333; animation: pulse 1s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    .msg-attachment-audio { margin-top: 10px; width: 100%; max-width: 300px; outline: none; border-radius: 20px; }
 
     .reactions { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
-    .reaction-pill { background: rgba(0,0,0,0.5); border: 1px solid rgba(0, 255, 204, 0.3); color: #00ffcc; padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
-    .reaction-pill:hover { border-color: #00ffcc; box-shadow: 0 0 5px rgba(0, 255, 204, 0.3); }
-    .reaction-pill.active { background: rgba(0, 255, 204, 0.2); border-color: #00ffcc; }
+    .reaction-pill { background: rgba(0,0,0,0.5); border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); color: var(--main-color, #00ffcc); padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
+    .reaction-pill:hover { border-color: var(--main-color, #00ffcc); box-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3)); }
+    .reaction-pill.active { background: var(--border-color, rgba(0, 255, 204, 0.2)); border-color: var(--main-color, #00ffcc); }
 
     .add-reaction { position: relative; padding-bottom: 5px; }
     .react-btn { color: #888; border: 1px dashed #888; padding: 2px 5px; border-radius: 10px; transition: all 0.2s; }
-    .react-btn:hover { color: #00ffcc; border-color: #00ffcc; }
-    .emoji-picker { display: none; position: absolute; bottom: 100%; left: 0; background: #050505; border: 1px solid #00ffcc; padding: 5px; gap: 5px; z-index: 10; margin-bottom: 0px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.8); }
+    .react-btn:hover { color: var(--main-color, #00ffcc); border-color: var(--main-color, #00ffcc); }
+    .emoji-picker { display: none; position: absolute; bottom: 100%; left: 0; background: var(--bg-color, #050505); border: 1px solid var(--main-color, #00ffcc); padding: 5px; gap: 5px; z-index: 10; margin-bottom: 0px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.8); }
     .add-reaction:hover .emoji-picker, .add-reaction:focus-within .emoji-picker { display: flex; }
     .emoji-picker button { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; transition: transform 0.2s; }
     .emoji-picker button:hover { transform: scale(1.2); }
-    .custom-emoji-input { background: transparent; border: 1px solid rgba(0,255,204,0.3); color: #fff; width: 35px; text-align: center; border-radius: 4px; outline: none; font-size: 1rem; }
-    .custom-emoji-input:focus { border-color: #00ffcc; box-shadow: 0 0 5px rgba(0,255,204,0.5); }
+    .custom-emoji-input { background: transparent; border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); color: #fff; width: 35px; text-align: center; border-radius: 4px; outline: none; font-size: 1rem; }
+    .custom-emoji-input:focus { border-color: var(--main-color, #00ffcc); box-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5)); }
 
     .decrypt-btn { background: transparent; color: #ffaa00; border: 1px solid #ffaa00; padding: 5px 10px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
     .decrypt-btn:hover { background: #ffaa00; color: #000; box-shadow: 0 0 10px rgba(255, 170, 0, 0.5); }
 
-    .chat-input-area { padding: 15px 20px; border-top: 1px solid rgba(0, 255, 204, 0.3); background: rgba(0, 0, 0, 0.5); }
+    .chat-input-area { padding: 15px 20px; border-top: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); background: rgba(0, 0, 0, 0.5); }
     
     .editing-banner { color: #ffaa00; font-size: 0.8rem; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border: 1px dashed #ffaa00; padding: 5px 10px; }
     .editing-banner button { background: #ffaa00; color: #000; border: none; font-weight: bold; cursor: pointer; padding: 2px 8px; }
@@ -712,15 +941,15 @@
 
     .input-controls { display: flex; gap: 15px; align-items: center; }
     
-    .read-once-toggle { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-    .read-once-toggle:hover { box-shadow: 0 0 10px rgba(0, 255, 204, 0.3); }
+    .read-once-toggle { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+    .read-once-toggle:hover { box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.3)); }
     .read-once-toggle.active { background: #ffaa00; border-color: #ffaa00; color: #000; box-shadow: 0 0 15px rgba(255, 170, 0, 0.5); }
 
     .input-row { display: flex; gap: 10px; flex: 1; }
-    .input-row input { flex: 1; background: rgba(0,255,204,0.05); border: 1px solid #00ffcc; color: #fff; padding: 10px 15px; font-family: inherit; font-size: 1rem; }
-    .input-row input:focus { outline: none; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3); background: rgba(0,255,204,0.1); }
-    .input-row button { background: #00ffcc; color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: inherit; letter-spacing: 1px; transition: all 0.2s; }
-    .input-row button:hover:not(:disabled) { box-shadow: 0 0 15px rgba(0,255,204,0.5); }
+    .input-row input { flex: 1; background: var(--border-color, rgba(0, 255, 204, 0.05)); border: 1px solid var(--main-color, #00ffcc); color: #fff; padding: 10px 15px; font-family: inherit; font-size: 1rem; }
+    .input-row input:focus { outline: none; box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.3)); background: var(--border-color, rgba(0, 255, 204, 0.1)); }
+    .input-row button { background: var(--main-color, #00ffcc); color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: inherit; letter-spacing: 1px; transition: all 0.2s; }
+    .input-row button:hover:not(:disabled) { box-shadow: 0 0 15px var(--main-glow, rgba(0, 255, 204, 0.5)); }
     .input-row button:disabled { background: #333; color: #666; cursor: not-allowed; }
     
     .char-count { text-align: right; font-size: 0.75rem; margin-top: 8px; opacity: 0.7; }

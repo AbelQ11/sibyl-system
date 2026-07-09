@@ -14,9 +14,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     }
 
     const user = db.prepare(`
-        SELECT id, username, avatar, role 
-        FROM users 
-        WHERE id = ?
+        SELECT u.id, u.username, u.avatar, u.role,
+            (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'name_effect' AND uc.equipped = 1 LIMIT 1) as nameEffect,
+            (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'avatar_border' AND uc.equipped = 1 LIMIT 1) as avatarBorder
+        FROM users u
+        WHERE u.id = ?
     `).get(sessionId) as any;
 
     if (!user) {
@@ -136,7 +138,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             targetType,
             senderId: user.id,
             senderName: user.username,
+            senderNameEffect: user.nameEffect,
             senderAvatar: user.avatar,
+            senderAvatarBorder: user.avatarBorder,
             senderCC: cc,
             senderRole: user.role,
             receiverId,
@@ -203,6 +207,7 @@ async function moderateMessage(messageId: number, text: string, userId: number) 
         const newCC = (stats ? stats.cc : 0) + penalty;
         
         db.prepare('INSERT INTO userStats (userId, cc, type) VALUES (?, ?, ?)').run(userId, newCC, 'SCAN_ENFORCEMENT');
+        db.prepare('UPDATE users SET credits = MAX(0, credits - 50) WHERE id = ?').run(userId);
 
         const redactedText = `[REDACTED BY SIBYL SYSTEM DUE TO PSYCHO-PASS CLOUDING. CC PENALTY: +${penalty}]`;
         db.prepare("UPDATE chat_messages SET text = ? WHERE id = ?").run(redactedText, messageId);

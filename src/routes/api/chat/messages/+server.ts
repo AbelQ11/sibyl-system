@@ -30,6 +30,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
                    g.name as groupName,
                    (SELECT cg.name FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupName,
                    (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId,
+                   (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'avatar_border' AND uc.equipped = 1 LIMIT 1) as senderAvatarBorder,
+                   (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'name_effect' AND uc.equipped = 1 LIMIT 1) as senderNameEffect,
                    parent.text as parentText,
                    parent_u.username as parentSenderName,
                    (SELECT AVG(cc) FROM userStats WHERE userId = parent_u.id) as parentAvgCC
@@ -57,6 +59,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
                        g.name as groupName,
                        (SELECT cg.name FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupName,
                        (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId,
+                       (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'avatar_border' AND uc.equipped = 1 LIMIT 1) as senderAvatarBorder,
+                       (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'name_effect' AND uc.equipped = 1 LIMIT 1) as senderNameEffect,
                        parent.text as parentText,
                        parent_u.username as parentSenderName,
                        (SELECT AVG(cc) FROM userStats WHERE userId = parent_u.id) as parentAvgCC
@@ -104,6 +108,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
                 senderId: m.senderId,
                 senderName: m.senderRole === 'ADMIN' ? 'XXXXXXXXXX' : m.senderName,
                 senderAvatar: m.senderAvatar,
+                senderAvatarBorder: m.senderAvatarBorder,
+                senderNameEffect: m.senderNameEffect,
                 senderCC: m.senderCC || 0,
                 senderRole: m.senderRole,
                 receiverId: m.receiverId,

@@ -242,8 +242,8 @@
     .terminal-container {
         position: relative;
         height: 100%;
-        background-color: #050505;
-        color: #00ffcc;
+        background-color: var(--bg-color, #050505);
+        color: var(--main-color, #00ffcc);
         font-family: 'Courier New', Courier, monospace;
         padding: 20px;
         box-sizing: border-box;
@@ -267,7 +267,7 @@
         flex-direction: column;
         z-index: 5;
         scrollbar-width: thin;
-        scrollbar-color: #00ffcc #000;
+        scrollbar-color: var(--main-color, #00ffcc) #000;
         padding-bottom: 20px;
     }
 
@@ -276,11 +276,11 @@
         white-space: pre-wrap;
         word-wrap: break-word;
         font-size: 1.1rem;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5));
     }
 
     .line.user { color: #fff; text-shadow: none; }
-    .line.system { color: #00ffcc; line-height: 1.4; }
+    .line.system { color: var(--main-color, #00ffcc); line-height: 1.4; }
 
     .input-line {
         display: flex;

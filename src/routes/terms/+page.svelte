@@ -73,19 +73,19 @@
     .terms-container {
         position: absolute;
         inset: 0;
-        background: #050505;
+        background: var(--bg-color, #050505);
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: 'Courier New', Courier, monospace;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         padding: 30px;
         box-sizing: border-box;
         overflow: hidden;
     }
 
     .main-card {
-        background: #050505;
+        background: var(--bg-color, #050505);
         padding: 30px;
         width: 100%;
         max-width: 800px;
@@ -98,13 +98,13 @@
     }
 
     .card-border {
-        border: 1px solid #00ffcc;
-        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        border: 1px solid var(--main-color, #00ffcc);
+        box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1));
     }
 
     .header {
         font-size: 1.1rem;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         padding-bottom: 15px;
         margin-bottom: 15px;
         letter-spacing: 2px;
@@ -128,7 +128,7 @@
     }
 
     h3 {
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         font-size: 1rem;
         margin-top: 25px;
         letter-spacing: 1px;
@@ -136,8 +136,8 @@
 
     .return-btn {
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 12px;
         cursor: pointer;
         font-family: inherit;
@@ -148,9 +148,9 @@
     }
 
     .return-btn:hover {
-        background: #00ffcc;
+        background: var(--main-color, #00ffcc);
         color: #000;
-        box-shadow: 0 0 15px #00ffcc;
+        box-shadow: 0 0 15px var(--main-color, #00ffcc);
     }
 
     .crt-overlay {

@@ -5,6 +5,7 @@
   "main": "sibyl-bot.js",
   "type": "module",
   "scripts": {
+    "dev": "node --watch sibyl-bot.js",
     "start": "node sibyl-bot.js",
     "deploy": "node deploy-commands.js"
   },

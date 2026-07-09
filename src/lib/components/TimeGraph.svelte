@@ -150,18 +150,18 @@
 
     <div class="svg-container">
         <svg viewBox="0 0 {width} {height}" class="graph">
-            <rect x="0" y={mapY(100)} width={width} height={mapY(0) - mapY(100)} fill="rgba(0, 255, 204, 0.02)" />
+            <rect x="0" y={mapY(100)} width={width} height={mapY(0) - mapY(100)} fill="var(--border-color, rgba(0, 255, 204, 0.02))" />
             <rect x="0" y={mapY(300)} width={width} height={mapY(100) - mapY(300)} fill="rgba(255, 150, 0, 0.02)" />
             <rect x="0" y={mapY(500)} width={width} height={mapY(300) - mapY(500)} fill="rgba(255, 51, 51, 0.02)" />
 
-            <line x1="0" y1={mapY(100)} x2={width} y2={mapY(100)} stroke="rgba(0, 255, 204, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />
-            <text x="15" y={mapY(100) - 6} fill="#00ffcc" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_MONITOR || 'OPTIMAL (100)'}</text>
+            <line x1="0" y1={mapY(100)} x2={width} y2={mapY(100)} stroke="var(--main-glow, rgba(0, 255, 204, 0.3))" stroke-width="1.5" stroke-dasharray="3 3" />
+            <text x="15" y={mapY(100) - 6} fill="var(--main-color, #00ffcc)" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_MONITOR || 'OPTIMAL (100)'}</text>
 
             <line x1="0" y1={mapY(300)} x2={width} y2={mapY(300)} stroke="rgba(255, 51, 51, 0.3)" stroke-width="1.5" stroke-dasharray="3 3" />
             <text x="15" y={mapY(300) - 6} fill="#ff3333" font-size="10" font-family="monospace">{$dictionary[$locale].TRENDS_THRESHOLD_LETHAL || 'LETHAL (300)'}</text>
 
             {#if points.length === 0}
-                <text x={width/2} y={height/2} fill="rgba(0, 255, 204, 0.5)" font-size="14" text-anchor="middle" font-family="monospace">
+                <text x={width/2} y={height/2} fill="var(--main-glow, rgba(0, 255, 204, 0.5))" font-size="14" text-anchor="middle" font-family="monospace">
                     {$dictionary[$locale].TREND_NO_DATA || 'NO DATA AVAILABLE FOR THIS PERIOD'}
                 </text>
             {/if}
@@ -173,14 +173,14 @@
                 {#if index > 0}
                     {@const prevX = mapX(index - 1, points.length)}
                     {@const prevY = mapY(points[index - 1].cc)}
-                    <line x1={prevX} y1={prevY} x2={x} y2={y} stroke="rgba(0, 255, 204, 0.4)" stroke-width="2" />
+                    <line x1={prevX} y1={prevY} x2={x} y2={y} stroke="var(--main-glow, rgba(0, 255, 204, 0.4))" stroke-width="2" />
                 {/if}
 
-                <line x1={x} y1={mapY(0)} x2={x} y2={y} stroke="rgba(0, 255, 204, 0.1)" stroke-width="1" stroke-dasharray="2 2" />
+                <line x1={x} y1={mapY(0)} x2={x} y2={y} stroke="var(--border-color, rgba(0, 255, 204, 0.1))" stroke-width="1" stroke-dasharray="2 2" />
                 
-                <circle cx={x} cy={y} r="5" fill={point.cc > 300 ? '#ff3333' : (point.cc > 100 ? '#ff9900' : '#00ffcc')} class="dot" />
-                <text x={x + 10} y={y - 10} fill={point.cc > 300 ? '#ff3333' : (point.cc > 100 ? '#ff9900' : '#00ffcc')} font-size="11" font-family="monospace">{point.cc}</text>
-                <text x={x} y={height - 25} fill="#00ffcc" font-size="10" text-anchor="middle" font-family="monospace">{point.label}</text>
+                <circle cx={x} cy={y} r="5" fill={point.cc > 300 ? '#ff3333' : (point.cc > 100 ? '#ff9900' : 'var(--main-color, #00ffcc)')} class="dot" />
+                <text x={x + 10} y={y - 10} fill={point.cc > 300 ? '#ff3333' : (point.cc > 100 ? '#ff9900' : 'var(--main-color, #00ffcc)')} font-size="11" font-family="monospace">{point.cc}</text>
+                <text x={x} y={height - 25} fill="var(--main-color, #00ffcc)" font-size="10" text-anchor="middle" font-family="monospace">{point.label}</text>
             {/each}
         </svg>
     </div>
@@ -204,15 +204,15 @@
         display: flex;
         align-items: center;
         gap: 1rem;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         font-family: monospace;
         font-size: 0.9rem;
     }
 
     .nav-btn {
-        background: rgba(0, 255, 204, 0.05);
-        border: 1px solid rgba(0, 255, 204, 0.3);
-        color: #00ffcc;
+        background: var(--border-color, rgba(0, 255, 204, 0.05));
+        border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
+        color: var(--main-color, #00ffcc);
         padding: 0.2rem 0.6rem;
         cursor: pointer;
         font-family: monospace;
@@ -224,7 +224,7 @@
     }
 
     .nav-btn:not(:disabled):hover {
-        background: rgba(0, 255, 204, 0.2);
+        background: var(--border-color, rgba(0, 255, 204, 0.2));
     }
 
     .period-label {
@@ -239,9 +239,9 @@
     }
 
     .controls button {
-        background: rgba(0, 255, 204, 0.05);
-        border: 1px solid rgba(0, 255, 204, 0.2);
-        color: rgba(0, 255, 204, 0.7);
+        background: var(--border-color, rgba(0, 255, 204, 0.05));
+        border: 1px solid var(--border-color, rgba(0, 255, 204, 0.2));
+        color: var(--main-glow, rgba(0, 255, 204, 0.7));
         padding: 0.4rem 1rem;
         font-family: monospace;
         font-size: 0.85rem;
@@ -250,15 +250,15 @@
     }
 
     .controls button:hover {
-        background: rgba(0, 255, 204, 0.15);
-        border-color: rgba(0, 255, 204, 0.5);
+        background: var(--border-color, rgba(0, 255, 204, 0.15));
+        border-color: var(--main-glow, rgba(0, 255, 204, 0.5));
     }
 
     .controls button.active {
-        background: rgba(0, 255, 204, 0.2);
-        border-color: #00ffcc;
-        color: #00ffcc;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+        background: var(--border-color, rgba(0, 255, 204, 0.2));
+        border-color: var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5));
     }
 
     .svg-container {

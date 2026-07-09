@@ -8,7 +8,13 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
     
     if (sessionId) {
         try {
-            const user = db.prepare('SELECT id, username, avatar, citizen_id, privacy, discord_username, discord_id, role, bio FROM users WHERE id = ?').get(sessionId) as { id: number, username: string, avatar: string | null, citizen_id: string | null, privacy: string, discord_username: string | null, discord_id: string | null, role: string, bio: string | null } | undefined;
+            const user = db.prepare(`
+                SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy, u.discord_username, u.discord_id, u.role, u.bio, u.credits,
+                       (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'interface_theme' AND uc.equipped = 1 LIMIT 1) as interface_theme,
+                       (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'pointer_skin' AND uc.equipped = 1 LIMIT 1) as pointer_skin
+                FROM users u 
+                WHERE u.id = ?
+            `).get(sessionId) as any;
             if (user) {
                 let citizenId = user.citizen_id;
                 
@@ -42,7 +48,10 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
                         discord_username: user.discord_username,
                         discord_id: user.discord_id,
                         role: user.role || 'USER',
-                        bio: user.bio || ''
+                        bio: user.bio || '',
+                        credits: user.credits || 0,
+                        interface_theme: user.interface_theme || 'theme-default',
+                        pointer_skin: user.pointer_skin || null
                     }
                 };
             }

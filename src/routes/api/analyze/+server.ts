@@ -56,6 +56,16 @@ export async function POST({ request }) {
                 db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'terminal')")
                     .run(userRow.id, parsedData.cc);
 
+                const today = new Date().toISOString().split('T')[0];
+                const userData = db.prepare('SELECT last_scan_date, credits FROM users WHERE id = ?').get(userRow.id) as { last_scan_date: string, credits: number };
+                
+                let creditsEarned = 0;
+                if (userData.last_scan_date !== today) {
+                    db.prepare('UPDATE users SET last_scan_date = ?, credits = credits + 20 WHERE id = ?').run(today, userRow.id);
+                    creditsEarned = 20;
+                }
+
+                Object.assign(parsedData, { creditsEarned });
                 /** Discord webhook integration removed. */
             } else {
                 console.warn(`[SIBYL API WARNING]: Citizen '${userId}' not found in database registry for logging.`);

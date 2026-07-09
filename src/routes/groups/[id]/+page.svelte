@@ -466,23 +466,23 @@
 </div>
 
 <style>
-    .group-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow: hidden; }
-    .main-card { background: #050505; padding: 30px; width: 100%; max-width: 1000px; height: 100%; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; }
-    .card-border { border: 1px solid #00ffcc; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); }
+    .group-container { position: absolute; inset: 0; background: var(--bg-color, #050505); display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: var(--main-color, #00ffcc); padding: 20px; overflow: hidden; }
+    .main-card { background: var(--bg-color, #050505); padding: 30px; width: 100%; max-width: 1000px; height: 100%; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; }
+    .card-border { border: 1px solid var(--main-color, #00ffcc); box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1)); }
     
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin-bottom: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin-bottom: 20px; }
     .title-container { display: flex; align-items: center; gap: 10px; }
     .header h2 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; }
     .header-actions { display: flex; gap: 10px; }
-    .return-btn, .join-btn, .enter-btn, .disband-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 15px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-    .return-btn:hover, .join-btn:hover, .enter-btn:hover { background: #00ffcc; color: #000; }
+    .return-btn, .join-btn, .enter-btn, .disband-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px 15px; font-weight: bold; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .return-btn:hover, .join-btn:hover, .enter-btn:hover { background: var(--main-color, #00ffcc); color: #000; }
     .disband-btn { border-color: #ff3333; color: #ff3333; }
     .disband-btn:hover { background: #ff3333; color: #000; }
 
-    .group-profile { display: flex; gap: 30px; margin-bottom: 30px; background: rgba(0, 255, 204, 0.02); padding: 20px; border: 1px dashed #00ffcc; }
+    .group-profile { display: flex; gap: 30px; margin-bottom: 30px; background: var(--border-color, rgba(0, 255, 204, 0.02)); padding: 20px; border: 1px dashed var(--main-color, #00ffcc); }
     
     .avatar-section { flex-shrink: 0; }
-    .group-avatar { width: 150px; height: 150px; border: 2px solid #00ffcc; position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+    .group-avatar { width: 150px; height: 150px; border: 2px solid var(--main-color, #00ffcc); position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
     .group-avatar.clickable { cursor: pointer; }
     .group-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .blank-avatar { color: #555; font-weight: bold; letter-spacing: 2px; }
@@ -497,47 +497,47 @@
     .bio-section { margin-top: 15px; border-top: 1px dashed #333; padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
     .bio-header { display: flex; justify-content: space-between; align-items: center; }
     .bio-text { white-space: pre-wrap; word-wrap: break-word; color: #aaa; font-size: 0.95rem; line-height: 1.4; }
-    textarea { width: 100%; height: 100px; background: rgba(0,255,204,0.05); border: 1px solid #00ffcc; color: #fff; padding: 10px; font-family: inherit; resize: vertical; }
-    .cc-input { background: transparent; border: 1px solid #00ffcc; color: #fff; font-family: inherit; padding: 5px; width: 80px; }
-    .save-btn { align-self: flex-start; background: #00ffcc; color: #000; border: none; padding: 5px 15px; font-weight: bold; cursor: pointer; }
+    textarea { width: 100%; height: 100px; background: var(--border-color, rgba(0, 255, 204, 0.05)); border: 1px solid var(--main-color, #00ffcc); color: #fff; padding: 10px; font-family: inherit; resize: vertical; }
+    .cc-input { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: #fff; font-family: inherit; padding: 5px; width: 80px; }
+    .save-btn { align-self: flex-start; background: var(--main-color, #00ffcc); color: #000; border: none; padding: 5px 15px; font-weight: bold; cursor: pointer; }
     .mini-btn { background: transparent; border: none; color: #ffaa00; cursor: pointer; font-family: inherit; }
 
     .invite-section { margin-top: 15px; border-top: 1px dashed #333; padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
     .invite-dropdown { display: flex; gap: 10px; align-items: center; }
 
     .management-section { flex: 1; display: flex; flex-direction: column; }
-    .tabs { display: flex; gap: 10px; border-bottom: 1px solid rgba(0, 255, 204, 0.3); margin-bottom: 15px; padding-bottom: 5px; }
+    .tabs { display: flex; gap: 10px; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); margin-bottom: 15px; padding-bottom: 5px; }
     .tab-btn { background: transparent; border: none; color: #555; font-family: inherit; font-weight: bold; cursor: pointer; padding: 5px 10px; font-size: 1rem; }
     .tab-btn:hover { color: #aaa; }
-    .tab-btn.active { color: #00ffcc; text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); border-bottom: 2px solid #00ffcc; }
+    .tab-btn.active { color: var(--main-color, #00ffcc); text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5)); border-bottom: 2px solid var(--main-color, #00ffcc); }
     
     .roster-table { width: 100%; border-collapse: collapse; text-align: left; }
-    .roster-table th { color: #555; font-size: 0.8rem; padding-bottom: 10px; border-bottom: 1px solid rgba(0, 255, 204, 0.2); }
+    .roster-table th { color: #555; font-size: 0.8rem; padding-bottom: 10px; border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.2)); }
     .roster-table td { padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
     
     .citizen-cell { display: flex; align-items: center; gap: 10px; }
-    .member-avatar { width: 30px; height: 30px; background: #222; border-radius: 50%; overflow: hidden; border: 1px solid #00ffcc; display: flex; align-items: center; justify-content: center; }
+    .member-avatar { width: 30px; height: 30px; background: #222; border-radius: 50%; overflow: hidden; border: 1px solid var(--main-color, #00ffcc); display: flex; align-items: center; justify-content: center; }
     .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .username { font-weight: bold; color: #fff; }
     
     .role-badge { padding: 2px 5px; font-size: 0.7rem; font-weight: bold; }
     .role-badge.inspector { background: #ffaa00; color: #000; }
     .role-badge.enforcer { background: #ff3333; color: #fff; }
-    .role-badge.citizen { background: #00ffcc; color: #000; }
+    .role-badge.citizen { background: var(--main-color, #00ffcc); color: #000; }
 
     .action-buttons { display: flex; gap: 5px; }
     .action-btn { background: transparent; border: 1px solid; font-size: 0.7rem; padding: 3px 8px; cursor: pointer; font-family: inherit; font-weight: bold; }
     .action-btn.promote { border-color: #ffaa00; color: #ffaa00; }
     .action-btn.promote:hover { background: #ffaa00; color: #000; }
-    .action-btn.demote { border-color: #00ffcc; color: #00ffcc; }
-    .action-btn.demote:hover { background: #00ffcc; color: #000; }
+    .action-btn.demote { border-color: var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); }
+    .action-btn.demote:hover { background: var(--main-color, #00ffcc); color: #000; }
     .action-btn.kick { border-color: #555; color: #555; }
     .action-btn.kick:hover { background: #ff3333; color: #000; border-color: #ff3333; }
     
-    .invite-toggle { border-color: #00ffcc !important; color: #00ffcc !important; padding: 10px !important; }
-    .invite-toggle:hover { background: #00ffcc !important; color: #000 !important; }
+    .invite-toggle { border-color: var(--main-color, #00ffcc) !important; color: var(--main-color, #00ffcc) !important; padding: 10px !important; }
+    .invite-toggle:hover { background: var(--main-color, #00ffcc) !important; color: #000 !important; }
 
-    .hue-optimal { color: #00ffcc; text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); }
+    .hue-optimal { color: var(--main-color, #00ffcc); text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5)); }
     .hue-warning { color: #ffaa00; text-shadow: 0 0 5px rgba(255, 170, 0, 0.5); }
     .hue-critical { color: #ff3333; text-shadow: 0 0 5px rgba(255, 51, 51, 0.5); }
 </style>

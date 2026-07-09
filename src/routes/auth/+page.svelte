@@ -126,29 +126,29 @@
 </div>
 
 <style>
-    .auth-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; }
-    .auth-card { border: 1px solid #00ffcc; padding: 40px; width: 100%; max-width: 500px; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); background: #050505; z-index: 20; }
-    .header { font-size: 1.1rem; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin-bottom: 30px; letter-spacing: 2px; text-align: center; }
+    .auth-container { position: absolute; inset: 0; background: var(--bg-color, #050505); display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: var(--main-color, #00ffcc); }
+    .auth-card { border: 1px solid var(--main-color, #00ffcc); padding: 40px; width: 100%; max-width: 500px; box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1)); background: var(--bg-color, #050505); z-index: 20; }
+    .header { font-size: 1.1rem; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin-bottom: 30px; letter-spacing: 2px; text-align: center; }
     .prompt-text, label { font-size: 0.9rem; margin-bottom: 12px; display: block; letter-spacing: 1px; }
     .form-title { margin-bottom: 20px; font-weight: bold; text-decoration: underline; }
 
     .input-wrapper { display: flex; position: relative; width: 100%; margin-bottom: 20px; }
     .input-wrapper input { margin-bottom: 0; flex-grow: 1; padding-right: 80px; }
 
-    .toggle-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: #00ffcc; font-size: 0.8rem; padding: 5px; cursor: pointer; }
-    .toggle-btn:hover { text-shadow: 0 0 8px #00ffcc; background: transparent; box-shadow: none; }
+    .toggle-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--main-color, #00ffcc); font-size: 0.8rem; padding: 5px; cursor: pointer; }
+    .toggle-btn:hover { text-shadow: 0 0 8px var(--main-color, #00ffcc); background: transparent; box-shadow: none; }
 
-    input { width: 100%; background: transparent; border: 1px solid rgba(0, 255, 204, 0.5); color: #fff; padding: 10px; margin-bottom: 20px; font-family: inherit; outline: none; box-sizing: border-box; }
-    input:focus { border-color: #00ffcc; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3); }
+    input { width: 100%; background: transparent; border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.5)); color: #fff; padding: 10px; margin-bottom: 20px; font-family: inherit; outline: none; box-sizing: border-box; }
+    input:focus { border-color: var(--main-color, #00ffcc); box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.3)); }
     .btn-group { display: flex; flex-direction: column; gap: 15px; }
 
-    button { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 12px; cursor: pointer; font-family: inherit; font-size: 1rem; transition: all 0.2s; }
-    button:hover { background: #00ffcc; color: #000; box-shadow: 0 0 15px #00ffcc; }
+    button { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 12px; cursor: pointer; font-family: inherit; font-size: 1rem; transition: all 0.2s; }
+    button:hover { background: var(--main-color, #00ffcc); color: #000; box-shadow: 0 0 15px var(--main-color, #00ffcc); }
 
     .status-msg { min-height: 20px; color: #ff3333; margin-bottom: 15px; font-size: 0.9rem; white-space: normal; word-wrap: break-word; }
     .field-hint {
         font-size: 0.75rem;
-        color: rgba(0, 255, 204, 0.6);
+        color: var(--main-glow, rgba(0, 255, 204, 0.6));
         margin-top: -10px;
         margin-bottom: 20px;
         line-height: 1.3;

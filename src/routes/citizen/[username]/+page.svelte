@@ -25,8 +25,14 @@
     
     let history: ScanData[] = [];
 
-    let activeTab: 'DOSSIER' | 'SURVEILLANCE' = 'DOSSIER';
+    let activeTab: 'DOSSIER' | 'SURVEILLANCE' | 'MODERATION' = 'DOSSIER';
     let surveillanceData: any[] = [];
+    // Admin state
+    let credits = 0;
+    let ownedCosmetics: any[] = [];
+    let allCosmetics: any[] = [];
+    let selectedCosmeticToGrant: string = '';
+    let adminActionLoading = false;
     let activeSurveillanceContact: number | null = null;
     let isAdmin = false;
 
@@ -40,7 +46,13 @@
                 avatar = data.avatar || null;
                 citizenId = data.citizen_id || 'SIB-UNKNOWN';
                 bio = data.bio || '';
+                credits = data.credits || 0;
                 history = data.history || [];
+                
+                if (data.allCosmetics) {
+                    allCosmetics = data.allCosmetics;
+                    ownedCosmetics = data.ownedCosmetics || [];
+                }
             } else if (res.status === 403) {
                 unauthorized = true;
             }
@@ -103,6 +115,76 @@
             alert("Admin action failed. Check console.");
         }
     }
+
+    async function handleUpdateCredits() {
+        if (adminActionLoading) return;
+        adminActionLoading = true;
+        try {
+            const res = await fetch('/api/admin/user', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, newCredits: credits })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error);
+            }
+        } catch (e) {
+            alert("Failed to update credits.");
+        }
+        adminActionLoading = false;
+    }
+
+    async function handleGrantCosmetic() {
+        if (!selectedCosmeticToGrant || adminActionLoading) return;
+        adminActionLoading = true;
+        try {
+            const res = await fetch('/api/admin/user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, action: 'GRANT_COSMETIC', cosmeticId: selectedCosmeticToGrant })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const grantedCosmetic = allCosmetics.find(c => c.id === selectedCosmeticToGrant);
+                if (grantedCosmetic) {
+                    ownedCosmetics = [...ownedCosmetics, {
+                        cosmeticId: grantedCosmetic.id,
+                        name: grantedCosmetic.name,
+                        type: grantedCosmetic.type,
+                        equipped: false
+                    }];
+                }
+                selectedCosmeticToGrant = '';
+            } else {
+                alert(data.error);
+            }
+        } catch (e) {
+            alert("Failed to grant cosmetic.");
+        }
+        adminActionLoading = false;
+    }
+
+    async function handleRevokeCosmetic(cosmeticId: number) {
+        if (adminActionLoading) return;
+        adminActionLoading = true;
+        try {
+            const res = await fetch('/api/admin/user', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, action: 'REVOKE_COSMETIC', cosmeticId })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                ownedCosmetics = ownedCosmetics.filter(c => c.cosmeticId !== cosmeticId);
+            } else {
+                alert(data.error);
+            }
+        } catch (e) {
+            alert("Failed to revoke cosmetic.");
+        }
+        adminActionLoading = false;
+    }
 </script>
 
 <svelte:head>
@@ -133,12 +215,13 @@
         </div>
     {:else}
         <div class="main-card card-border">
-            <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin-bottom: 15px;">
+            <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin-bottom: 15px;">
                 <h1 class="header" style="border: none; padding: 0; margin: 0;">{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {username?.toUpperCase()}</h1>
                 {#if isAdmin}
                     <div class="profile-tabs" style="display: flex; gap: 10px;">
                         <button class="tab-btn {activeTab === 'DOSSIER' ? 'active' : ''}" on:click={() => activeTab = 'DOSSIER'}>{$dictionary[$locale].CITIZEN_TAB_DOSSIER}</button>
                         <button class="tab-btn {activeTab === 'SURVEILLANCE' ? 'active' : ''}" on:click={() => activeTab = 'SURVEILLANCE'}>{$dictionary[$locale].CITIZEN_TAB_SURVEILLANCE}</button>
+                        <button class="tab-btn {activeTab === 'MODERATION' ? 'active' : ''}" on:click={() => activeTab = 'MODERATION'}>MODERATION</button>
                     </div>
                 {/if}
             </div>
@@ -230,7 +313,7 @@
             
             {:else if activeTab === 'SURVEILLANCE'}
                 <div class="surveillance-container" style="display: flex; gap: 20px; height: 100%;">
-                    <div class="surveillance-sidebar card-border" style="width: 250px; background: #050505; display: flex; flex-direction: column;">
+                    <div class="surveillance-sidebar card-border" style="width: 250px; background: var(--bg-color, #050505); display: flex; flex-direction: column;">
                         <h2 class="sub-header" style="margin: 15px;">{$dictionary[$locale].CITIZEN_CONTACTS}</h2>
                         <div class="contacts-list" style="flex: 1; overflow-y: auto;">
                             {#if surveillanceData.length === 0}
@@ -240,7 +323,7 @@
                                 <button 
                                     class="contact-btn {activeSurveillanceContact === conv.otherUserId ? 'active' : ''}" 
                                     on:click={() => activeSurveillanceContact = conv.otherUserId}
-                                    style="width: 100%; text-align: left; padding: 15px; background: transparent; border: none; border-bottom: 1px solid rgba(0,255,204,0.1); color: {activeSurveillanceContact === conv.otherUserId ? '#000' : '#00ffcc'}; background-color: {activeSurveillanceContact === conv.otherUserId ? '#00ffcc' : 'transparent'}; cursor: pointer; font-family: inherit; font-size: 0.9rem;"
+                                    style="width: 100%; text-align: left; padding: 15px; background: transparent; border: none; border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1)); color: {activeSurveillanceContact === conv.otherUserId ? '#000' : 'var(--main-color, #00ffcc)'}; background-color: {activeSurveillanceContact === conv.otherUserId ? 'var(--main-color, #00ffcc)' : 'transparent'}; cursor: pointer; font-family: inherit; font-size: 0.9rem;"
                                 >
                                     > {conv.otherUsername.toUpperCase()}
                                 </button>
@@ -248,7 +331,7 @@
                         </div>
                     </div>
                     
-                    <div class="surveillance-chat card-border" style="flex: 1; background: #050505; display: flex; flex-direction: column; position: relative;">
+                    <div class="surveillance-chat card-border" style="flex: 1; background: var(--bg-color, #050505); display: flex; flex-direction: column; position: relative;">
                         {#if activeSurveillanceContact !== null}
                             {@const activeConv = surveillanceData.find(c => c.otherUserId === activeSurveillanceContact)}
                             <h2 class="sub-header" style="margin: 15px;">{$dictionary[$locale].CITIZEN_INTERCEPTED}: {username?.toUpperCase()} &lt;-&gt; {activeConv.otherUsername?.toUpperCase()}</h2>
@@ -256,7 +339,7 @@
                             <div class="chat-history" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
                                 {#each activeConv.messages as msg}
                                     <div style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 5px;">
-                                        <div style="font-weight: bold; color: {msg.senderId === activeSurveillanceContact ? '#ffaa00' : '#00ffcc'};">
+                                        <div style="font-weight: bold; color: {msg.senderId === activeSurveillanceContact ? '#ffaa00' : 'var(--main-color, #00ffcc)'};">
                                             [{formatFullDate(msg.created_at)}] {msg.senderName.toUpperCase()}:
                                         </div>
                                         <div style="padding-left: 10px; color: #fff;">{msg.text}</div>
@@ -264,9 +347,62 @@
                                 {/each}
                             </div>
                         {:else}
-                            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(0,255,204,0.3); letter-spacing: 2px;">
+                            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--main-glow, rgba(0, 255, 204, 0.3)); letter-spacing: 2px;">
                                 {$dictionary[$locale].CITIZEN_SELECT_MONITOR}
                             </div>
+                        {/if}
+                    </div>
+                </div>
+            {:else if activeTab === 'MODERATION'}
+                <div class="moderation-panel">
+                    <h2 class="sys-subtitle">CITIZEN ECONOMY</h2>
+                    <div class="economy-editor" style="display: flex; align-items: center; gap: 10px; margin-bottom: 30px;">
+                        <span>BALANCE (CREDITS):</span>
+                        <input type="number" bind:value={credits} style="background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px; font-family: inherit; width: 100px;" />
+                        <button class="action-btn" on:click={handleUpdateCredits} disabled={adminActionLoading}>UPDATE BALANCE</button>
+                    </div>
+
+                    <h2 class="sys-subtitle">COSMETIC INVENTORY</h2>
+                    
+                    <div class="grant-cosmetic" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: rgba(0, 0, 0, 0.2); padding: 10px; border: 1px dashed var(--main-color, #00ffcc);">
+                        <span>GRANT ITEM:</span>
+                        <select bind:value={selectedCosmeticToGrant} style="background: var(--bg-color, #050505); color: var(--main-color, #00ffcc); border: 1px solid var(--main-color, #00ffcc); padding: 5px; font-family: inherit; flex-grow: 1;">
+                            <option value="">-- SELECT COSMETIC TO GRANT --</option>
+                            {#each allCosmetics.filter(c => !ownedCosmetics.some(oc => oc.cosmeticId === c.id)) as cosmetic}
+                                <option value={cosmetic.id}>{cosmetic.name} [{cosmetic.type.toUpperCase()}]</option>
+                            {/each}
+                        </select>
+                        <button class="action-btn" on:click={handleGrantCosmetic} disabled={adminActionLoading || !selectedCosmeticToGrant}>GRANT</button>
+                    </div>
+
+                    <div class="inventory-list">
+                        {#if ownedCosmetics.length === 0}
+                            <div class="sys-text">CITIZEN OWNS NO COSMETICS.</div>
+                        {:else}
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.3));">
+                                        <th style="padding: 10px;">ID</th>
+                                        <th style="padding: 10px;">TYPE</th>
+                                        <th style="padding: 10px;">NAME</th>
+                                        <th style="padding: 10px;">EQUIPPED</th>
+                                        <th style="padding: 10px;">ACTION</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {#each ownedCosmetics as item}
+                                        <tr style="border-bottom: 1px dashed var(--border-color, rgba(0, 255, 204, 0.1));">
+                                            <td style="padding: 10px;">{item.cosmeticId}</td>
+                                            <td style="padding: 10px;">{item.type.toUpperCase()}</td>
+                                            <td style="padding: 10px;">{item.name}</td>
+                                            <td style="padding: 10px;">{item.equipped ? 'YES' : 'NO'}</td>
+                                            <td style="padding: 10px;">
+                                                <button class="action-btn warning" on:click={() => handleRevokeCosmetic(item.cosmeticId)} disabled={adminActionLoading}>REVOKE</button>
+                                            </td>
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
                         {/if}
                     </div>
                 </div>
@@ -291,65 +427,65 @@
 </div>
 
 <style>
-    .profile-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow: hidden; }
-    .loading-panel { padding: 40px; background: #050505; border: 1px solid #00ffcc; text-align: center; }
+    .profile-container { position: absolute; inset: 0; background: var(--bg-color, #050505); display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: var(--main-color, #00ffcc); padding: 20px; overflow: hidden; }
+    .loading-panel { padding: 40px; background: var(--bg-color, #050505); border: 1px solid var(--main-color, #00ffcc); text-align: center; }
     .loader-text { font-size: 0.95rem; font-weight: bold; letter-spacing: 2px; }
     
-    .restricted-card { background: #050505; padding: 40px; width: 100%; max-width: 500px; display: flex; flex-direction: column; text-align: center; }
+    .restricted-card { background: var(--bg-color, #050505); padding: 40px; width: 100%; max-width: 500px; display: flex; flex-direction: column; text-align: center; }
     .restricted-desc { font-size: 0.9rem; line-height: 1.6; margin-bottom: 30px; color: rgba(255, 255, 255, 0.85); }
     
-    .main-card { background: #050505; padding: 30px; width: 100%; max-width: 1100px; height: 100%; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; }
-    .card-border { border: 1px solid #00ffcc; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); }
-    .header { font-size: 1.1rem; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin: 0 0 15px 0; letter-spacing: 2px; font-weight: bold; }
+    .main-card { background: var(--bg-color, #050505); padding: 30px; width: 100%; max-width: 1100px; height: 100%; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; }
+    .card-border { border: 1px solid var(--main-color, #00ffcc); box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1)); }
+    .header { font-size: 1.1rem; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin: 0 0 15px 0; letter-spacing: 2px; font-weight: bold; }
     .security-level { font-size: 0.75rem; color: #ff3333; letter-spacing: 1px; margin-bottom: 15px; text-shadow: 0 0 5px rgba(255, 51, 84, 0.3); }
-    .security-level.text-stable { color: #00ffcc; text-shadow: 0 0 5px rgba(0, 255, 204, 0.3); }
+    .security-level.text-stable { color: var(--main-color, #00ffcc); text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3)); }
 
-    .subject-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 25px; color: rgba(0, 255, 204, 0.75); }
+    .subject-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 25px; color: var(--main-glow, rgba(0, 255, 204, 0.75)); }
 
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 25px; margin-bottom: 25px; }
-    .panel { background: #050505; padding: 20px; display: flex; flex-direction: column; }
-    .sub-header { font-size: 0.85rem; letter-spacing: 1px; font-weight: bold; margin: 0 0 20px 0; color: #00ffcc; border-bottom: 1px dashed rgba(0, 255, 204, 0.15); padding-bottom: 5px; }
+    .panel { background: var(--bg-color, #050505); padding: 20px; display: flex; flex-direction: column; }
+    .sub-header { font-size: 0.85rem; letter-spacing: 1px; font-weight: bold; margin: 0 0 20px 0; color: var(--main-color, #00ffcc); border-bottom: 1px dashed var(--border-color, rgba(0, 255, 204, 0.15)); padding-bottom: 5px; }
 
     .avatar-section { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; }
-    .avatar-frame { width: 90px; height: 90px; border: 1px solid #00ffcc; background: #111; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .avatar-frame { width: 90px; height: 90px; border: 1px solid var(--main-color, #00ffcc); background: #111; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
-    .blank-avatar { width: 100%; height: 100%; background: #00ffcc; opacity: 0.25; }
+    .blank-avatar { width: 100%; height: 100%; background: var(--main-color, #00ffcc); opacity: 0.25; }
 
     .bio-meta { display: flex; flex-direction: column; gap: 4px; }
-    .bio-label { font-size: 0.7rem; color: rgba(0, 255, 204, 0.7); letter-spacing: 1px; }
+    .bio-label { font-size: 0.7rem; color: var(--main-glow, rgba(0, 255, 204, 0.7)); letter-spacing: 1px; }
     .bio-value { font-size: 0.9rem; font-weight: bold; color: #fff; margin-bottom: 8px; }
 
-    .cc-readout { border: 1px solid rgba(0, 255, 204, 0.3); padding: 15px; text-align: center; background: rgba(0, 255, 204, 0.02); }
-    .readout-label { font-size: 0.75rem; letter-spacing: 1px; color: rgba(0, 255, 204, 0.8); }
-    .cc-number { font-size: 3rem; font-weight: bold; margin: 10px 0; font-family: 'Courier New', monospace; text-shadow: 0 0 10px rgba(0, 255, 204, 0.5); }
-    .cc-number.stable { color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
+    .cc-readout { border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding: 15px; text-align: center; background: var(--border-color, rgba(0, 255, 204, 0.02)); }
+    .readout-label { font-size: 0.75rem; letter-spacing: 1px; color: var(--main-glow, rgba(0, 255, 204, 0.8)); }
+    .cc-number { font-size: 3rem; font-weight: bold; margin: 10px 0; font-family: 'Courier New', monospace; text-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.5)); }
+    .cc-number.stable { color: var(--main-color, #00ffcc); text-shadow: 0 0 10px var(--main-color, #00ffcc); }
     .cc-number.warning { color: #ffaa00; text-shadow: 0 0 10px #ffaa00; }
     .cc-number.lethal { color: #ff3333; text-shadow: 0 0 15px #ff3333; animation: blink-text 1s infinite alternate; }
     .readout-status { font-size: 1rem; font-weight: bold; letter-spacing: 2px; }
 
     .empty-state { font-size: 0.8rem; opacity: 0.6; padding: 40px 0; text-align: center; }
     .svg-container { padding: 10px 0; }
-    .graph { width: 100%; border-bottom: 1px solid #00ffcc; border-left: 1px solid #00ffcc; background: linear-gradient(rgba(0, 255, 204, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 204, 0.02) 1px, transparent 1px); background-size: 30px 30px; }
+    .graph { width: 100%; border-bottom: 1px solid var(--main-color, #00ffcc); border-left: 1px solid var(--main-color, #00ffcc); background: linear-gradient(var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px), linear-gradient(90deg, var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px); background-size: 30px 30px; }
     .dot { cursor: pointer; }
     
-    .table-panel { background: #050505; padding: 20px; display: flex; flex-direction: column; margin-bottom: 25px; }
+    .table-panel { background: var(--bg-color, #050505); padding: 20px; display: flex; flex-direction: column; margin-bottom: 25px; }
     .table-container { width: 100%; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { font-size: 0.8rem; color: #00ffcc; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding: 10px; font-weight: bold; letter-spacing: 1px; }
-    td { padding: 10px; font-size: 0.8rem; border-bottom: 1px solid rgba(0, 255, 204, 0.1); color: #fff; }
+    th { font-size: 0.8rem; color: var(--main-color, #00ffcc); border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding: 10px; font-weight: bold; letter-spacing: 1px; }
+    td { padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1)); color: #fff; }
     
     tr.warning td { color: #ffaa00; }
     tr.lethal td { color: #ff3333; }
     
     .cc-cell { font-family: monospace; font-weight: bold; }
     .scan-type-tag { font-size: 0.7rem; padding: 2px 6px; border: 1px solid; font-family: monospace; }
-    .scan-type-tag.type-biometric { border-color: #00ffcc; color: #00ffcc; }
+    .scan-type-tag.type-biometric { border-color: var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); }
     .scan-type-tag.type-terminal { border-color: #ffaa00; color: #ffaa00; }
 
-    .return-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 12px; cursor: pointer; font-family: inherit; font-size: 0.95rem; letter-spacing: 2px; transition: all 0.2s; margin-top: auto; }
-    .return-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 15px #00ffcc; }
+    .return-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 12px; cursor: pointer; font-family: inherit; font-size: 0.95rem; letter-spacing: 2px; transition: all 0.2s; margin-top: auto; }
+    .return-btn:hover { background: var(--main-color, #00ffcc); color: #000; box-shadow: 0 0 15px var(--main-color, #00ffcc); }
     
-    .text-stable { color: #00ffcc; }
+    .text-stable { color: var(--main-color, #00ffcc); }
     .text-warning { color: #ffaa00; }
     .text-lethal { color: #ff3333; }
 
@@ -374,7 +510,7 @@
     .erase-account { border-color: #ff3333; color: #ff3333; background: transparent; }
     .erase-account:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
     
-    .tab-btn { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 5px 15px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
-    .tab-btn:hover { background: rgba(0, 255, 204, 0.1); box-shadow: 0 0 10px #00ffcc; }
-    .tab-btn.active { background: #00ffcc; color: #000; }
+    .tab-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px 15px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
+    .tab-btn:hover { background: var(--border-color, rgba(0, 255, 204, 0.1)); box-shadow: 0 0 10px var(--main-color, #00ffcc); }
+    .tab-btn.active { background: var(--main-color, #00ffcc); color: #000; }
 </style>

@@ -97,9 +97,14 @@ export async function GET({ url, cookies }) {
     }
 
     try {
-        /** 3. Save Discord credentials */
-        db.prepare('UPDATE users SET discord_username = ?, discord_id = ? WHERE id = ?')
-          .run(discordUsername, discordId, userId);
+        /** 3. Save Discord credentials and reward 50 credits if first time */
+        db.prepare(`
+            UPDATE users 
+            SET credits = CASE WHEN discord_id IS NULL THEN credits + 50 ELSE credits END,
+                discord_username = ?, 
+                discord_id = ? 
+            WHERE id = ?
+        `).run(discordUsername, discordId, userId);
     } catch (dbErr) {
         console.error('Failed to link Discord credentials in SQLite database:', dbErr);
         throw redirect(302, '/account?discord=error');

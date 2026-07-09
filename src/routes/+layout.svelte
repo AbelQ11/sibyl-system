@@ -55,39 +55,66 @@
         }
 
         if (data?.user) {
+            fetch('/api/rewards/daily', { method: 'POST' })
+                .then(res => res.json())
+                .then(d => {
+                    if (d.success && d.reward > 0) {
+                        createNotification("DAILY REWARD", d.message, null, '/shop');
+                    }
+                }).catch(console.error);
+
             eventSource = new EventSource('/api/chat/stream');
             eventSource.onmessage = (event) => {
                 const eventData = JSON.parse(event.data);
                 latestSSEEvent.set(eventData);
 
-                if (eventData.type === 'message') {
-                    /** Determine if the user is actively viewing this specific discussion */
+                if (eventData.type === 'message' || eventData.type === 'webrtc_signal') {
                     let isViewingDiscussion = false;
                     if (document.hasFocus() && window.location.pathname.startsWith('/chat')) {
                         const url = new URL(window.location.href);
-                        if (eventData.message.targetType === 'GROUP' && url.searchParams.get('group') === String(eventData.message.groupId)) {
-                            isViewingDiscussion = true;
-                        } else if (eventData.message.targetType === 'PRIVATE' && url.searchParams.get('private') === String(eventData.message.senderId)) {
-                            isViewingDiscussion = true;
-                        } else if (eventData.message.targetType === 'PUBLIC' && !url.searchParams.get('group') && !url.searchParams.get('private')) {
-                            isViewingDiscussion = true;
+                        if (eventData.type === 'message') {
+                            if (eventData.message.targetType === 'GROUP' && url.searchParams.get('group') === String(eventData.message.groupId)) {
+                                isViewingDiscussion = true;
+                            } else if (eventData.message.targetType === 'PRIVATE' && url.searchParams.get('private') === String(eventData.message.senderId)) {
+                                isViewingDiscussion = true;
+                            } else if (eventData.message.targetType === 'PUBLIC' && !url.searchParams.get('group') && !url.searchParams.get('private')) {
+                                isViewingDiscussion = true;
+                            }
+                        } else if (eventData.type === 'webrtc_signal') {
+                            if (eventData.targetGroupId && url.searchParams.get('group') === String(eventData.targetGroupId)) {
+                                isViewingDiscussion = true;
+                            } else if (!eventData.targetGroupId && url.searchParams.get('private') === String(eventData.senderId)) {
+                                isViewingDiscussion = true;
+                            }
                         }
                     }
 
-                    if ($globalNotificationsEnabled && eventData.message.senderId !== data.user.id && !isViewingDiscussion) {
-                        let link = '/chat';
-                        if (eventData.message.targetType === 'GROUP') {
-                            link = `/chat?group=${eventData.message.groupId}`;
-                        } else if (eventData.message.targetType === 'PRIVATE') {
-                            link = `/chat?private=${eventData.message.senderId}`;
+                    if (eventData.type === 'message') {
+                        if ($globalNotificationsEnabled && eventData.message.senderId !== data.user.id && !isViewingDiscussion) {
+                            let link = '/chat';
+                            if (eventData.message.targetType === 'GROUP') {
+                                link = `/chat?group=${eventData.message.groupId}`;
+                            } else if (eventData.message.targetType === 'PRIVATE') {
+                                link = `/chat?private=${eventData.message.senderId}`;
+                            }
+                            
+                            createNotification(
+                                "SIBYL COMMS", 
+                                `${eventData.message.senderName}: ${eventData.message.isReadOnce ? '[ENCRYPTED]' : eventData.message.text}`,
+                                eventData.message.senderAvatar,
+                                link
+                            );
                         }
-                        
-                        createNotification(
-                            "SIBYL COMMS", 
-                            `${eventData.message.senderName}: ${eventData.message.isReadOnce ? '[ENCRYPTED]' : eventData.message.text}`,
-                            eventData.message.senderAvatar,
-                            link
-                        );
+                    } else if (eventData.type === 'webrtc_signal') {
+                        if ($globalNotificationsEnabled && eventData.senderId !== data.user.id && eventData.signalType === 'join-ping' && !isViewingDiscussion) {
+                            let link = eventData.targetGroupId ? `/chat?group=${eventData.targetGroupId}` : `/chat?private=${eventData.senderId}`;
+                            createNotification(
+                                "INCOMING TRANSMISSION", 
+                                `${eventData.senderName} is initiating a secure voice call.`,
+                                null,
+                                link
+                            );
+                        }
                     }
                 } else if (eventData.type === 'notification') {
                     if ($globalNotificationsEnabled && eventData.receiverId === data.user.id) {
@@ -129,7 +156,11 @@
     });
 </script>
 
-<div class="app-wrapper">
+<svelte:head>
+    <link rel="stylesheet" href={`/api/cosmetics/css?v=${Date.now()}`} />
+</svelte:head>
+
+<div class="app-wrapper {data?.user?.interface_theme || 'theme-default'} {data?.user?.pointer_skin || ''}">
     <main class="content-frame" class:full-height={$appMode === 'BREATHING'}>
         <slot />
     </main>
@@ -161,6 +192,11 @@
                 <a href="/invite" class="nav-btn-link">
                     {$dictionary[$locale].NAV_INVITE}
                 </a>
+                {#if $currentUser}
+                    <a href="/shop" class="nav-btn-link" style="border-color: #ffd700; color: #ffd700;">
+                        SHOP
+                    </a>
+                {/if}
                 <button class="lang-toggle-btn" on:click={toggleLanguage}>
                     [ {$locale} ]
                 </button>
@@ -214,6 +250,12 @@
                     {$dictionary[$locale].NAV_INVITE}
                 </a>
                 
+                {#if $currentUser}
+                    <a href="/shop" class="burger-link" style="border-color: #ffd700; color: #ffd700;" on:click={closeMenu}>
+                        SHOP
+                    </a>
+                {/if}
+
                 <button class="burger-lang-btn" on:click={toggleLanguage}>
                     [ {$dictionary[$locale].NAV_LANGUAGE}: {$locale} ]
                 </button>
@@ -235,37 +277,43 @@
     {/if}
 </div>
 <style>
-    :global(body) { margin: 0; background-color: #050505; overflow: hidden; }
-    .app-wrapper { display: flex; flex-direction: column; height: 100vh; position: relative; }
+    :global(body) { margin: 0; background-color: var(--bg-color, #050505); color: var(--main-color, #00ffcc); overflow: hidden; }
+    .app-wrapper { 
+        display: flex; 
+        flex-direction: column; 
+        height: 100vh; 
+        position: relative; 
+        background-color: var(--bg-color, #050505);
+        color: var(--main-color, #00ffcc);
+    }
     .content-frame { flex-grow: 1; height: calc(100vh - 45px); position: relative; overflow: hidden; }
-    .hud-nav { display: flex; justify-content: space-between; align-items: center; padding: 10px 25px; background: rgba(5, 5, 5, 0.95); border-top: 1px solid rgba(0, 255, 204, 0.25); font-family: 'Courier New', Courier, monospace; color: #00ffcc; z-index: 1000; height: 25px; }
-    .logo { cursor: pointer; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); }
+    .hud-nav { display: flex; justify-content: space-between; align-items: center; padding: 10px 25px; background: var(--bg-color, rgba(5, 5, 5, 0.95)); border-top: 1px solid var(--border-color, rgba(0, 255, 204, 0.25)); font-family: 'Courier New', Courier, monospace; color: var(--main-color, #00ffcc); z-index: 1000; height: 25px; }
+    .logo { cursor: pointer; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5)); }
     .profile-link { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 8px; border: 1px solid transparent; }
-    .profile-link:hover { border-color: #00ffcc; background: rgba(0, 255, 204, 0.05); }
-    .nav-avatar { width: 24px; height: 24px; border: 1px solid #00ffcc; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .profile-link:hover { border-color: var(--main-color, #00ffcc); background: rgba(0, 0, 0, 0.2); }
+    .nav-avatar { width: 24px; height: 24px; border: 1px solid var(--main-color, #00ffcc); overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .blank-nav-avatar { width: 100%; height: 100%; background: #00ffcc; opacity: 0.3; }
+    .blank-nav-avatar { width: 100%; height: 100%; background: var(--main-color, #00ffcc); opacity: 0.3; }
     .nav-links { display: flex; align-items: center; }
     .lang-toggle-btn {
         background: transparent;
-        border: 1px solid rgba(0, 255, 204, 0.4);
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 2px 8px;
         cursor: pointer;
         font-family: inherit;
         font-size: 0.8rem;
-        margin-right: 15px;
         transition: all 0.2s;
     }
     .lang-toggle-btn:hover {
-        background: rgba(0, 255, 204, 0.1);
-        border-color: #00ffcc;
-        box-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
+        background: rgba(0, 0, 0, 0.1);
+        border-color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3));
     }
     .nav-btn-link {
         text-decoration: none;
-        color: #00ffcc;
-        border: 1px solid rgba(0, 255, 204, 0.4);
+        color: var(--main-color, #00ffcc);
+        border: 1px solid var(--border-color, rgba(0, 255, 204, 0.4));
         padding: 2px 8px;
         font-size: 0.8rem;
         margin-right: 15px;
@@ -273,16 +321,25 @@
         display: inline-block;
     }
     .nav-btn-link:hover {
-        background: rgba(0, 255, 204, 0.1);
-        border-color: #00ffcc;
-        box-shadow: 0 0 5px rgba(0, 255, 204, 0.3);
+        background: rgba(0, 0, 0, 0.1);
+        border-color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3));
+    }
+    .credits-nav-display {
+        font-size: 0.8rem;
+        color: #ffd700;
+        border: 1px solid #ffd700;
+        padding: 2px 8px;
+        margin-right: 15px;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
     }
 
     .burger-btn {
         display: none;
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 4px 10px;
         cursor: pointer;
         font-family: inherit;
@@ -290,8 +347,8 @@
         transition: all 0.2s;
     }
     .burger-btn:hover {
-        background: rgba(0, 255, 204, 0.1);
-        box-shadow: 0 0 5px #00ffcc;
+        background: var(--border-color, rgba(0, 255, 204, 0.1));
+        box-shadow: 0 0 5px var(--main-color, #00ffcc);
     }
     .burger-menu-overlay {
         position: fixed;
@@ -316,17 +373,17 @@
     }
     .burger-logo {
         font-size: 1rem;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         font-weight: bold;
         letter-spacing: 2px;
         margin-bottom: 15px;
-        text-shadow: 0 0 8px rgba(0, 255, 204, 0.5);
+        text-shadow: 0 0 8px var(--main-glow, rgba(0, 255, 204, 0.5));
     }
     .burger-link {
         font-size: 1rem;
         text-decoration: none;
-        color: #00ffcc;
-        border: 1px solid rgba(0, 255, 204, 0.4);
+        color: var(--main-color, #00ffcc);
+        border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.4));
         padding: 10px 20px;
         width: 100%;
         text-align: center;
@@ -335,14 +392,14 @@
         letter-spacing: 1.5px;
     }
     .burger-link:hover {
-        background: rgba(0, 255, 204, 0.1);
-        border-color: #00ffcc;
-        box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        background: var(--border-color, rgba(0, 255, 204, 0.1));
+        border-color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.3));
     }
     .burger-lang-btn {
         background: transparent;
-        border: 1px solid rgba(0, 255, 204, 0.4);
-        color: #00ffcc;
+        border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.4));
+        color: var(--main-color, #00ffcc);
         padding: 10px 20px;
         width: 100%;
         cursor: pointer;
@@ -352,9 +409,9 @@
         letter-spacing: 1.5px;
     }
     .burger-lang-btn:hover {
-        background: rgba(0, 255, 204, 0.1);
-        border-color: #00ffcc;
-        box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        background: var(--border-color, rgba(0, 255, 204, 0.1));
+        border-color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.3));
     }
     .burger-close-btn {
         position: absolute;
@@ -375,26 +432,38 @@
         color: #000;
         box-shadow: 0 0 8px #ff3333;
     }
+    .burger-credits-display {
+        font-size: 1rem;
+        color: #ffd700;
+        border: 1px dashed #ffd700;
+        padding: 10px 20px;
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        margin-bottom: 5px;
+    }
     .burger-profile-box {
         display: flex;
         align-items: center;
         gap: 12px;
         cursor: pointer;
         padding: 8px 15px;
-        border: 1px dashed rgba(0, 255, 204, 0.4);
+        border: 1px dashed var(--main-glow, rgba(0, 255, 204, 0.4));
         margin-top: 15px;
         width: 100%;
         box-sizing: border-box;
         justify-content: center;
     }
     .burger-profile-box:hover {
-        border-color: #00ffcc;
-        background: rgba(0, 255, 204, 0.05);
+        border-color: var(--main-color, #00ffcc);
+        background: var(--border-color, rgba(0, 255, 204, 0.05));
     }
     .burger-avatar {
         width: 28px;
         height: 28px;
-        border: 1px solid #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -408,7 +477,7 @@
     .blank-burger-avatar {
         width: 100%;
         height: 100%;
-        background: #00ffcc;
+        background: var(--main-color, #00ffcc);
         opacity: 0.3;
     }
     .burger-username {
@@ -449,10 +518,10 @@
             display: block;
             background: transparent;
             border: none;
-            color: #00ffcc;
+            color: var(--main-color, #00ffcc);
             padding: 8px;
             font-size: 2.2rem;
-            text-shadow: 0 0 10px rgba(0, 255, 204, 0.7);
+            text-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.7));
             cursor: pointer;
             pointer-events: auto;
             line-height: 1;
@@ -461,11 +530,28 @@
         .burger-btn.open {
             transform: rotate(90deg);
         }
-        .burger-btn:hover, .burger-btn:active {
-            color: #fff;
-            text-shadow: 0 0 20px #00ffcc;
-            background: transparent;
-            box-shadow: none;
-        }
+    .burger-btn:hover, .burger-btn:active {
+        color: #fff;
+        text-shadow: 0 0 20px var(--main-color, #00ffcc);
+        background: transparent;
+        box-shadow: none;
+    }
+}
+
+    /* BASE COSMETIC WRAPPERS */
+    :global(.avatar-wrapper) {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+    }
+
+    /* BASE CURSOR */
+    :global(html), :global(body) {
+        cursor: url('/cursors/cyber-arrow.svg') 2 2, auto;
+    }
+    :global(a), :global(button), :global(input), :global(select), :global([role="button"]), :global(.clickable) {
+        cursor: url('/cursors/cyber-arrow.svg') 2 2, pointer;
     }
 </style>

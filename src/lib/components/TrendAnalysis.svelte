@@ -40,17 +40,17 @@
         {:else}
             <svg viewBox="0 0 400 300" class="graph">
                 {#each [100, 200, 300, 400, 500] as mark}
-                    <line x1="0" y1={mapY(mark)} x2="400" y2={mapY(mark)} stroke="rgba(0, 255, 204, 0.15)" />
+                    <line x1="0" y1={mapY(mark)} x2="400" y2={mapY(mark)} stroke="var(--border-color, rgba(0, 255, 204, 0.15))" />
                 {/each}
 
                 <line x1="50" y1={mapY(firstCC)} x2="350" y2={mapY(lastCC)}
-                      stroke="#00ffcc" stroke-width="2" stroke-dasharray="5" />
+                      stroke="var(--main-color, #00ffcc)" stroke-width="2" stroke-dasharray="5" />
 
-                <circle cx="50" cy={mapY(firstCC)} r="6" fill="#00ffcc" />
-                <text x="20" y={mapY(firstCC) - 15} fill="#00ffcc" font-size="12">{$dictionary[$locale].TREND_ENTRY}: {firstCC}</text>
+                <circle cx="50" cy={mapY(firstCC)} r="6" fill="var(--main-color, #00ffcc)" />
+                <text x="20" y={mapY(firstCC) - 15} fill="var(--main-color, #00ffcc)" font-size="12">{$dictionary[$locale].TREND_ENTRY}: {firstCC}</text>
 
-                <circle cx="350" cy={mapY(lastCC)} r="6" fill={lastCC > 100 ? '#ff3333' : '#00ffcc'} />
-                <text x="310" y={mapY(lastCC) - 15} fill="#00ffcc" font-size="12">{$dictionary[$locale].TREND_CURRENT}: {lastCC}</text>
+                <circle cx="350" cy={mapY(lastCC)} r="6" fill={lastCC > 100 ? '#ff3333' : 'var(--main-color, #00ffcc)'} />
+                <text x="310" y={mapY(lastCC) - 15} fill="var(--main-color, #00ffcc)" font-size="12">{$dictionary[$locale].TREND_CURRENT}: {lastCC}</text>
             </svg>
 
             <div class="status" class:bad={lastCC > firstCC}>
@@ -77,19 +77,19 @@
     }
 
     .trend-card {
-        border: 1px solid #00ffcc;
-        background: #050505;
+        border: 1px solid var(--main-color, #00ffcc);
+        background: var(--bg-color, #050505);
         padding: 30px;
         width: 90%;
         max-width: 600px;
-        color: #00ffcc;
-        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1));
     }
 
     .header {
         font-size: 0.9rem;
         margin-bottom: 30px;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         padding-bottom: 10px;
         letter-spacing: 2px;
     }
@@ -103,12 +103,12 @@
 
     .graph {
         width: 100%;
-        border-bottom: 1px solid #00ffcc;
-        border-left: 1px solid #00ffcc;
+        border-bottom: 1px solid var(--main-color, #00ffcc);
+        border-left: 1px solid var(--main-color, #00ffcc);
         margin-bottom: 10px;
         /* Subtle grid pattern in the background */
-        background: linear-gradient(rgba(0, 255, 204, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
+        background: linear-gradient(var(--border-color, rgba(0, 255, 204, 0.05)) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color, rgba(0, 255, 204, 0.05)) 1px, transparent 1px);
         background-size: 20px 20px;
     }
 
@@ -128,8 +128,8 @@
     .back-btn {
         width: 100%;
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 12px;
         cursor: pointer;
         font-family: inherit;
@@ -139,8 +139,8 @@
     }
 
     .back-btn:hover {
-        background: #00ffcc;
+        background: var(--main-color, #00ffcc);
         color: #000;
-        box-shadow: 0 0 15px #00ffcc;
+        box-shadow: 0 0 15px var(--main-color, #00ffcc);
     }
 </style>

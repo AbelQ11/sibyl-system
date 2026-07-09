@@ -124,7 +124,7 @@
 <style>
     .breathing-session {
         position: fixed; inset: 0;
-        background: #000; color: #00ffcc;
+        background: #000; color: var(--main-color, #00ffcc);
         font-family: 'Courier New', Courier, monospace;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         overflow: hidden;
@@ -135,7 +135,7 @@
     .status-bar {
         position: absolute; top: 20px; width: 90%;
         display: flex; justify-content: space-between;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         font-size: 0.8rem;
         z-index: 15;
     }
@@ -173,13 +173,13 @@
 
     .target-grid {
         position: absolute; inset: 0;
-        background-image: linear-gradient(rgba(0, 255, 204, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 204, 0.1) 1px, transparent 1px);
-        background-size: 20px 20px; border: 1px solid rgba(0, 255, 204, 0.2);
+        background-image: linear-gradient(var(--border-color, rgba(0, 255, 204, 0.1)) 1px, transparent 1px), linear-gradient(90deg, var(--border-color, rgba(0, 255, 204, 0.1)) 1px, transparent 1px);
+        background-size: 20px 20px; border: 1px solid var(--border-color, rgba(0, 255, 204, 0.2));
     }
 
     .breathing-circle {
         width: 100px; height: 100px;
-        border: 2px solid #00ffcc;
+        border: 2px solid var(--main-color, #00ffcc);
         transform: rotate(45deg) scale(1);
         transition: all var(--duration) linear;
         position: absolute;
@@ -187,8 +187,8 @@
         left: 150px;
     }
 
-    .breathing-circle.IN { transform: rotate(225deg) scale(2.5); background: rgba(0, 255, 204, 0.2); }
-    .breathing-circle.HOLD { transform: rotate(225deg) scale(2.5); background: rgba(0, 255, 204, 0.4); box-shadow: 0 0 30px #00ffcc; }
+    .breathing-circle.IN { transform: rotate(225deg) scale(2.5); background: var(--border-color, rgba(0, 255, 204, 0.2)); }
+    .breathing-circle.HOLD { transform: rotate(225deg) scale(2.5); background: var(--main-glow, rgba(0, 255, 204, 0.4)); box-shadow: 0 0 30px var(--main-color, #00ffcc); }
     .breathing-circle.OUT { transform: rotate(45deg) scale(1); background: transparent; }
 
     .instruction {
@@ -196,7 +196,7 @@
         width: 100%;
         text-align: center;
         font-size: 2rem; letter-spacing: 5px;
-        text-shadow: 0 0 10px #00ffcc;
+        text-shadow: 0 0 10px var(--main-color, #00ffcc);
     }
 
     .finished-state {
@@ -205,16 +205,16 @@
         left: 50px;
         width: 300px;
         text-align: center; z-index: 20; padding: 20px;
-        border: 1px solid #00ffcc; background: rgba(0,0,0,0.9);
+        border: 1px solid var(--main-color, #00ffcc); background: rgba(0,0,0,0.9);
         box-sizing: border-box;
     }
     .options-row { display: flex; gap: 15px; justify-content: center; margin-top: 10px; }
 
     .rescan-btn {
-        background: transparent; color: #00ffcc; border: 1px solid #00ffcc;
+        background: transparent; color: var(--main-color, #00ffcc); border: 1px solid var(--main-color, #00ffcc);
         padding: 10px; cursor: pointer; font-family: inherit;
     }
-    .rescan-btn:hover { background: #00ffcc; color: #000; }
+    .rescan-btn:hover { background: var(--main-color, #00ffcc); color: #000; }
 
     .cc-monitor .value.danger { color: #ff3333; text-shadow: 0 0 15px #ff3333; }
 

@@ -121,19 +121,19 @@
     .trends-container {
         position: absolute;
         inset: 0;
-        background: #050505;
+        background: var(--bg-color, #050505);
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: 'Courier New', Courier, monospace;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         padding: 30px;
         box-sizing: border-box;
         overflow: hidden;
     }
 
     .main-card {
-        background: #050505;
+        background: var(--bg-color, #050505);
         padding: 30px;
         width: 100%;
         max-width: 1000px;
@@ -146,13 +146,13 @@
     }
 
     .card-border {
-        border: 1px solid #00ffcc;
-        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        border: 1px solid var(--main-color, #00ffcc);
+        box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1));
     }
 
     .header {
         font-size: 1.1rem;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         padding-bottom: 15px;
         margin: 0 0 15px 0;
         letter-spacing: 2px;
@@ -164,18 +164,18 @@
         justify-content: space-between;
         font-size: 0.85rem;
         margin-bottom: 25px;
-        color: rgba(0, 255, 204, 0.75);
+        color: var(--main-glow, rgba(0, 255, 204, 0.75));
     }
 
     .message-state {
         text-align: center;
         padding: 100px 0;
-        border: 1px dashed rgba(0, 255, 204, 0.2);
+        border: 1px dashed var(--border-color, rgba(0, 255, 204, 0.2));
         margin-bottom: 20px;
     }
 
     .chart-panel {
-        background: #050505;
+        background: var(--bg-color, #050505);
         margin-bottom: 25px;
         display: flex;
         flex-direction: column;
@@ -183,9 +183,9 @@
 
     .panel-header {
         font-size: 0.85rem;
-        background: rgba(0, 255, 204, 0.05);
+        background: var(--border-color, rgba(0, 255, 204, 0.05));
         padding: 8px 15px;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+        border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.2));
         font-weight: bold;
         letter-spacing: 1px;
         margin: 0;
@@ -197,10 +197,10 @@
 
     .graph {
         width: 100%;
-        border-bottom: 1px solid #00ffcc;
-        border-left: 1px solid #00ffcc;
-        background: linear-gradient(rgba(0, 255, 204, 0.02) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(0, 255, 204, 0.02) 1px, transparent 1px);
+        border-bottom: 1px solid var(--main-color, #00ffcc);
+        border-left: 1px solid var(--main-color, #00ffcc);
+        background: linear-gradient(var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px);
         background-size: 30px 30px;
     }
 
@@ -212,7 +212,7 @@
     }
 
     .table-panel {
-        background: #050505;
+        background: var(--bg-color, #050505);
         margin-bottom: 25px;
         display: flex;
         flex-direction: column;
@@ -236,26 +236,26 @@
     }
 
     th {
-        border-bottom: 1px solid rgba(0, 255, 204, 0.4);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.4));
         padding: 10px;
         font-weight: bold;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
     }
 
     td {
         padding: 10px;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.1);
+        border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1));
         color: rgba(255, 255, 255, 0.85);
     }
 
     tr:hover td {
-        background: rgba(0, 255, 204, 0.04);
+        background: var(--border-color, rgba(0, 255, 204, 0.04));
         color: #fff;
     }
 
     .cc-cell {
         font-weight: bold;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
     }
 
     tr.warning td {
@@ -282,9 +282,9 @@
         text-shadow: none;
     }
     .type-biometric {
-        color: #00ffcc;
-        background: rgba(0, 255, 204, 0.08);
-        box-shadow: 0 0 5px rgba(0, 255, 204, 0.15);
+        color: var(--main-color, #00ffcc);
+        background: var(--border-color, rgba(0, 255, 204, 0.08));
+        box-shadow: 0 0 5px var(--border-color, rgba(0, 255, 204, 0.15));
     }
     .type-terminal {
         color: #00bfff;
@@ -301,8 +301,8 @@
     .nav-btn {
         flex: 1;
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 12px;
         cursor: pointer;
         font-family: inherit;
@@ -312,13 +312,13 @@
     }
 
     .nav-btn:hover {
-        background: #00ffcc;
+        background: var(--main-color, #00ffcc);
         color: #000;
-        box-shadow: 0 0 15px #00ffcc;
+        box-shadow: 0 0 15px var(--main-color, #00ffcc);
     }
 
     .terminal-btn {
-        border-color: #00ffcc;
+        border-color: var(--main-color, #00ffcc);
     }
 
     .crt-overlay {

@@ -14,7 +14,7 @@ export async function GET({ url, cookies }) {
     }
 
     try {
-        const userRow = db.prepare('SELECT id, username, avatar, privacy, citizen_id, bio FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number, username: string, avatar: string | null, privacy: string, citizen_id: string | null, bio: string | null } | undefined;
+        const userRow = db.prepare('SELECT id, username, avatar, privacy, citizen_id, bio, credits FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number, username: string, avatar: string | null, privacy: string, citizen_id: string | null, bio: string | null, credits: number } | undefined;
 
         if (!userRow) {
             return json({
@@ -23,6 +23,7 @@ export async function GET({ url, cookies }) {
                 avatar: null,
                 citizen_id: null,
                 bio: null,
+                credits: 0,
                 history: []
             });
         }
@@ -68,13 +69,25 @@ export async function GET({ url, cookies }) {
         const first_cc = stats.length > 0 ? stats[0].cc : 0;
         const last_cc = stats.length > 0 ? stats[stats.length - 1].cc : 0;
 
+        let adminData: any = {};
+        if (isAdmin) {
+            const allCosmetics = db.prepare('SELECT id, name, type FROM cosmetics').all();
+            const ownedCosmetics = db.prepare('SELECT uc.cosmeticId, c.name, c.type, uc.equipped FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = ?').all(userRow.id);
+            adminData = {
+                allCosmetics,
+                ownedCosmetics
+            };
+        }
+
         return json({
             first_cc,
             last_cc,
             avatar: userRow.avatar,
             citizen_id: userRow.citizen_id,
             bio: userRow.bio,
-            history: stats
+            credits: userRow.credits,
+            history: stats,
+            ...adminData
         });
 
     } catch (err: any) {

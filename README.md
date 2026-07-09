@@ -53,9 +53,16 @@ The SIBYL network enables citizens to establish compliance synchronization chann
 * **Secure Chat System**:
   * Cross-platform Public Chat and Group Chat are mirrored in real-time with the Discord bot.
   * Private secure lines are available between friends.
+  * **Voice Transmissions**: Users can record and attach asynchronous voice messages via microphone.
+  * **Real-time Voice Calls (WebRTC)**: Initiate live P2P mesh-network voice calls with groups (up to 10 participants) or directly in private chats.
   * Messages support a **"Read-Once"** (auto-destruct) mechanic and are color-coded (Hued) dynamically based on the sender's Crime Coefficient.
   * **Automated Empathy AI Moderation**: Public transmissions are scanned via a Multi-Provider AI Daemon (Gemini & OpenAI fallback). Toxic communications are permanently redacted and immediate CC penalties are administered to non-compliant citizens.
 * **Advanced Privacy**: Users can restrict visibility of their profile to `PUBLIC`, `FRIENDS`, `GROUP ONLY`, `FRIENDS AND GROUP ONLY`, or `PRIVATE`.
+
+### 3. Cosmetics Shop & Customization
+* **Dynamic Cosmetics**: Citizens can earn credits by chatting and use them in the internal Shop to unlock custom `avatar_borders`, `name_effects`, `interface_themes`, and `pointer_skins`.
+* **Global Pointers**: Custom cyberpunk-themed SVG pointers (e.g. Lethal Eliminator, Dominator Sight, Neural Uplink) override default browser cursors.
+* **Real-time Injection**: Equipped cosmetics dynamically inject database-stored CSS rules globally into the application layout via a dedicated CSS endpoint.
 
 ---
 

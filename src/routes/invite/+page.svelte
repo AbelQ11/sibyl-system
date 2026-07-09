@@ -69,19 +69,19 @@
     .invite-container {
         position: absolute;
         inset: 0;
-        background: #050505;
+        background: var(--bg-color, #050505);
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: 'Courier New', Courier, monospace;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         padding: 20px;
         box-sizing: border-box;
         overflow: hidden;
     }
 
     .main-card {
-        background: #050505;
+        background: var(--bg-color, #050505);
         padding: 30px;
         width: 100%;
         max-width: 900px;
@@ -95,18 +95,18 @@
     }
 
     .card-border {
-        border: 1px solid #00ffcc;
-        box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        border: 1px solid var(--main-color, #00ffcc);
+        box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1));
     }
 
     .header {
         font-size: 1.1rem;
-        border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+        border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
         padding-bottom: 15px;
         margin: 0 0 5px 0;
         letter-spacing: 2px;
         font-weight: bold;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.5));
     }
 
     .subtitle {
@@ -126,7 +126,7 @@
     }
 
     .deploy-card {
-        background: rgba(0, 255, 204, 0.01);
+        background: var(--border-color, rgba(0, 255, 204, 0.01));
         padding: 25px;
         display: flex;
         flex-direction: column;
@@ -139,7 +139,7 @@
     .card-glow {
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at 50% 50%, rgba(0, 255, 204, 0.05) 0%, transparent 70%);
+        background: radial-gradient(circle at 50% 50%, var(--border-color, rgba(0, 255, 204, 0.05)) 0%, transparent 70%);
         opacity: 0;
         transition: opacity 0.3s ease;
         pointer-events: none;
@@ -151,12 +151,12 @@
 
     /* Server Card Specifics */
     .server-theme {
-        border-color: rgba(0, 255, 204, 0.4);
+        border-color: var(--main-glow, rgba(0, 255, 204, 0.4));
     }
     .server-theme:hover {
-        border-color: #00ffcc;
-        box-shadow: 0 0 25px rgba(0, 255, 204, 0.2);
-        background: rgba(0, 255, 204, 0.03);
+        border-color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 25px var(--border-color, rgba(0, 255, 204, 0.2));
+        background: var(--border-color, rgba(0, 255, 204, 0.03));
     }
 
     /* User Card Specifics */
@@ -178,7 +178,7 @@
     }
     .user-theme .action-btn:hover {
         background: #ffaa00;
-        color: #050505;
+        color: var(--bg-color, #050505);
         box-shadow: 0 0 15px #ffaa00;
     }
 
@@ -198,9 +198,9 @@
     }
 
     .server-badge {
-        border-color: #00ffcc;
-        color: #00ffcc;
-        background: rgba(0, 255, 204, 0.1);
+        border-color: var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
+        background: var(--border-color, rgba(0, 255, 204, 0.1));
     }
 
     .user-badge {
@@ -221,8 +221,8 @@
         display: block;
         text-align: center;
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 12px;
         cursor: pointer;
         font-family: inherit;
@@ -234,9 +234,9 @@
     }
 
     .action-btn:hover {
-        background: #00ffcc;
-        color: #050505;
-        box-shadow: 0 0 15px #00ffcc;
+        background: var(--main-color, #00ffcc);
+        color: var(--bg-color, #050505);
+        box-shadow: 0 0 15px var(--main-color, #00ffcc);
     }
 
     .warning-section {
@@ -266,8 +266,8 @@
 
     .return-btn {
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         padding: 12px;
         cursor: pointer;
         font-family: inherit;
@@ -278,9 +278,9 @@
     }
 
     .return-btn:hover {
-        background: #00ffcc;
-        color: #050505;
-        box-shadow: 0 0 15px #00ffcc;
+        background: var(--main-color, #00ffcc);
+        color: var(--bg-color, #050505);
+        box-shadow: 0 0 15px var(--main-color, #00ffcc);
     }
 
     .crt-overlay {

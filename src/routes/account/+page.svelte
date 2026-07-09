@@ -55,11 +55,11 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 600, 360);
 
-        ctx.strokeStyle = '#00ffcc';
+        ctx.strokeStyle = 'var(--main-color, #00ffcc)';
         ctx.lineWidth = 3;
         ctx.strokeRect(12, 12, 576, 336);
 
-        ctx.strokeStyle = 'rgba(0, 255, 204, 0.03)';
+        ctx.strokeStyle = 'var(--border-color, rgba(0, 255, 204, 0.03))';
         ctx.lineWidth = 1;
         for (let x = 20; x < 580; x += 15) {
             ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, 340); ctx.stroke();
@@ -68,7 +68,7 @@
             ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(580, y); ctx.stroke();
         }
 
-        ctx.strokeStyle = 'rgba(0, 255, 204, 0.05)';
+        ctx.strokeStyle = 'var(--border-color, rgba(0, 255, 204, 0.05))';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(430, 210, 80, 0, Math.PI * 2);
@@ -81,22 +81,22 @@
         ctx.moveTo(430, 100); ctx.lineTo(430, 320);
         ctx.stroke();
 
-        ctx.strokeStyle = '#00ffcc';
+        ctx.strokeStyle = 'var(--main-color, #00ffcc)';
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(25, 45); ctx.lineTo(25, 25); ctx.lineTo(45, 25); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(575, 45); ctx.lineTo(575, 25); ctx.lineTo(555, 25); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(25, 315); ctx.lineTo(25, 335); ctx.lineTo(45, 335); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(575, 315); ctx.lineTo(575, 335); ctx.lineTo(555, 335); ctx.stroke();
 
-        ctx.fillStyle = '#00ffcc';
+        ctx.fillStyle = 'var(--main-color, #00ffcc)';
         ctx.font = 'bold 16px monospace';
         ctx.fillText('SIBYL SYSTEM CORE COMPLIANCE REGISTRY', 40, 52);
-        ctx.fillStyle = 'rgba(0, 255, 204, 0.6)';
+        ctx.fillStyle = 'var(--main-glow, rgba(0, 255, 204, 0.6))';
         ctx.font = '9px monospace';
         ctx.fillText('VERIFIED CITIZEN SECURITY PASS // COGNITIVE SCAN LOGS', 40, 68);
 
         const drawDetails = () => {
-            ctx.fillStyle = 'rgba(0, 255, 204, 0.7)';
+            ctx.fillStyle = 'var(--main-glow, rgba(0, 255, 204, 0.7))';
             ctx.font = '10px monospace';
             ctx.fillText('SUBJECT NAME:', 180, 105);
             ctx.fillText('SYSTEM ID:', 180, 130);
@@ -111,10 +111,10 @@
             ctx.fillText(data?.user?.discord_username || 'NOT LINKED', 290, 155);
 
             let ccVal = averageCC;
-            let hueColor = '#00ffcc';
+            let hueColor = 'var(--main-color, #00ffcc)';
             let hueName = 'CLEAR HUE';
             let enforcementStatus = 'PASS / OPTIMAL';
-            let statusColor = '#00ffcc';
+            let statusColor = 'var(--main-color, #00ffcc)';
 
             if (ccVal > 300) {
                 hueColor = '#ff3333';
@@ -139,7 +139,7 @@
             ctx.lineWidth = 1;
             ctx.strokeRect(290, 170, 10, 10);
 
-            ctx.fillStyle = 'rgba(0, 255, 204, 0.05)';
+            ctx.fillStyle = 'var(--border-color, rgba(0, 255, 204, 0.05))';
             ctx.fillRect(180, 225, 380, 45);
             ctx.strokeStyle = statusColor;
             ctx.strokeRect(180, 225, 380, 45);
@@ -150,7 +150,7 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillText(enforcementStatus, 195, 260);
 
-            ctx.strokeStyle = 'rgba(0, 255, 204, 0.3)';
+            ctx.strokeStyle = 'var(--main-glow, rgba(0, 255, 204, 0.3))';
             ctx.strokeRect(180, 285, 380, 15);
             ctx.fillStyle = hueColor;
             const barFill = Math.min(380, (ccVal / 500) * 380);
@@ -164,7 +164,7 @@
             ctx.lineTo(180 + (300/500)*380, 300);
             ctx.stroke();
 
-            ctx.fillStyle = 'rgba(0, 255, 204, 0.3)';
+            ctx.fillStyle = 'var(--main-glow, rgba(0, 255, 204, 0.3))';
             ctx.font = '7px monospace';
             ctx.fillText('SIBYL SYSTEM CORE CERTIFICATE v2.6 // CRYPTOGRAPHICALLY SECURED', 40, 340);
             ctx.fillText(`TIMESTAMP: ${new Date().toISOString()}`, 350, 340);
@@ -181,7 +181,7 @@
             avatarImg.onload = () => {
                 ctx.drawImage(avatarImg, 40, 90, 120, 120);
                 
-                ctx.strokeStyle = '#00ffcc';
+                ctx.strokeStyle = 'var(--main-color, #00ffcc)';
                 ctx.lineWidth = 1.5;
                 ctx.strokeRect(40, 90, 120, 120);
 
@@ -193,7 +193,7 @@
                 ctx.moveTo(155, 210); ctx.lineTo(165, 210);
                 ctx.stroke();
 
-                ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+                ctx.strokeStyle = 'var(--main-glow, rgba(0, 255, 204, 0.5))';
                 ctx.beginPath();
                 ctx.moveTo(35, 150); ctx.lineTo(165, 150);
                 ctx.stroke();
@@ -202,7 +202,7 @@
             };
             avatarImg.src = $userAvatar;
         } else {
-            ctx.strokeStyle = '#00ffcc';
+            ctx.strokeStyle = 'var(--main-color, #00ffcc)';
             ctx.lineWidth = 1.5;
             ctx.strokeRect(40, 90, 120, 120);
 
@@ -540,45 +540,45 @@
 </div>
 
 <style>
-    .account-container { position: absolute; inset: 0; background: #050505; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: #00ffcc; padding: 20px; overflow-y: auto; }
+    .account-container { position: absolute; inset: 0; background: var(--bg-color, #050505); display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: var(--main-color, #00ffcc); padding: 20px; overflow-y: auto; }
     .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 30px; width: 100%; max-width: 1400px; }
-    .panel { background: #050505; padding: 30px; display: flex; flex-direction: column; }
-    .card-border { border: 1px solid #00ffcc; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); }
-    .header { font-size: 1rem; border-bottom: 1px solid rgba(0, 255, 204, 0.3); padding-bottom: 15px; margin: 0 0 25px 0; letter-spacing: 2px; font-weight: bold; }
+    .panel { background: var(--bg-color, #050505); padding: 30px; display: flex; flex-direction: column; }
+    .card-border { border: 1px solid var(--main-color, #00ffcc); box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1)); }
+    .header { font-size: 1rem; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin: 0 0 25px 0; letter-spacing: 2px; font-weight: bold; }
     .avatar-section { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; }
-    .avatar-frame { width: 90px; height: 90px; border: 1px solid #00ffcc; background: #111; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; overflow: hidden; }
+    .avatar-frame { width: 90px; height: 90px; border: 1px solid var(--main-color, #00ffcc); background: #111; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; overflow: hidden; }
     .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
-    .upload-btn { cursor: pointer; border: 1px dashed #00ffcc; padding: 8px; font-size: 0.8rem; text-align: center; }
-    .upload-btn:hover { background: rgba(0, 255, 204, 0.1); }
+    .upload-btn { cursor: pointer; border: 1px dashed var(--main-color, #00ffcc); padding: 8px; font-size: 0.8rem; text-align: center; }
+    .upload-btn:hover { background: var(--border-color, rgba(0, 255, 204, 0.1)); }
     .form { display: flex; flex-direction: column; flex-grow: 1; }
     label { font-size: 0.85rem; margin-bottom: 8px; letter-spacing: 1px; display: block; }
-    input { width: 100%; background: transparent; border: 1px solid rgba(0, 255, 204, 0.4); color: #fff; padding: 10px; margin-bottom: 20px; font-family: inherit; outline: none; }
-    input:focus { border-color: #00ffcc; }
+    input { width: 100%; background: transparent; border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.4)); color: #fff; padding: 10px; margin-bottom: 20px; font-family: inherit; outline: none; }
+    input:focus { border-color: var(--main-color, #00ffcc); }
     .status-msg { height: 20px; color: #ff3333; margin-bottom: 15px; font-size: 0.85rem; }
-    .status-msg.success { color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
-    button { background: transparent; border: 1px solid #00ffcc; color: #00ffcc; padding: 12px; cursor: pointer; font-family: inherit; font-size: 0.95rem; letter-spacing: 1px; transition: all 0.2s; }
-    button:hover { background: #00ffcc; color: #000; box-shadow: 0 0 15px #00ffcc; }
+    .status-msg.success { color: var(--main-color, #00ffcc); text-shadow: 0 0 5px var(--main-color, #00ffcc); }
+    button { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 12px; cursor: pointer; font-family: inherit; font-size: 0.95rem; letter-spacing: 1px; transition: all 0.2s; }
+    button:hover { background: var(--main-color, #00ffcc); color: #000; box-shadow: 0 0 15px var(--main-color, #00ffcc); }
     .logout-btn { border-color: #ff3333; color: #ff3333; margin-top: 25px; font-size: 0.85rem; padding: 8px; }
     .logout-btn:hover { background: #ff3333; color: #000; box-shadow: 0 0 15px #ff3333; }
-    .message-state { text-align: center; padding: 60px 0; border: 1px dashed rgba(0, 255, 204, 0.2); margin-bottom: 20px; }
+    .message-state { text-align: center; padding: 60px 0; border: 1px dashed var(--border-color, rgba(0, 255, 204, 0.2)); margin-bottom: 20px; }
     .status { margin-bottom: 35px; font-weight: bold; text-align: center; font-size: 1.05rem; }
     .status.bad { color: #ff3333; text-shadow: 0 0 10px #ff3333; }
     .crt-overlay { position: absolute; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 2px; pointer-events: none; z-index: 10; }
     .camera-init-btn {
-        border-color: #00ffcc;
-        color: #00ffcc;
+        border-color: var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         margin-top: 15px;
         font-size: 0.85rem;
         padding: 10px;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.4);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.4));
     }
     .camera-init-btn:hover {
-        background: rgba(0, 255, 204, 0.1);
-        color: #00ffcc;
-        box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+        background: var(--border-color, rgba(0, 255, 204, 0.1));
+        color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 12px var(--main-glow, rgba(0, 255, 204, 0.3));
     }
     .community-btn-panel:hover, .group-btn-panel:hover {
-        background: rgba(0, 255, 204, 0.2);
+        background: var(--border-color, rgba(0, 255, 204, 0.2));
         color: #fff;
     }
     .export-btn {
@@ -601,12 +601,12 @@
     .network-btn-panel, .group-btn-panel, .community-btn-panel {
         width: 100%;
         background: transparent;
-        border: 1px solid #00ffcc;
-        color: #00ffcc;
+        border: 1px solid var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         margin-bottom: 15px;
         font-size: 0.85rem;
         padding: 12px;
-        text-shadow: 0 0 5px rgba(0, 255, 204, 0.4);
+        text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.4));
         text-align: center;
         box-sizing: border-box;
         cursor: pointer;
@@ -614,19 +614,19 @@
         transition: all 0.2s;
     }
     .network-btn-panel:hover, .group-btn-panel:hover, .community-btn-panel:hover {
-        background: #00ffcc;
+        background: var(--main-color, #00ffcc);
         color: #000;
-        box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+        box-shadow: 0 0 12px var(--main-glow, rgba(0, 255, 204, 0.3));
     }
     .connection-section {
         margin-bottom: 25px;
     }
     .section-desc {
         font-size: 0.8rem;
-        color: rgba(0, 255, 204, 0.75);
+        color: var(--main-glow, rgba(0, 255, 204, 0.75));
         line-height: 1.4;
         margin-bottom: 25px;
-        border-left: 2px solid #00ffcc;
+        border-left: 2px solid var(--main-color, #00ffcc);
         padding-left: 10px;
     }
     .network-controls-group {
@@ -636,8 +636,8 @@
     }
     .privacy-select {
         width: 100%;
-        background: #050505;
-        border: 1px solid rgba(0, 255, 204, 0.4);
+        background: var(--bg-color, #050505);
+        border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.4));
         color: #fff;
         padding: 10px;
         margin-bottom: 20px;
@@ -646,11 +646,11 @@
         cursor: pointer;
     }
     .privacy-select:focus {
-        border-color: #00ffcc;
+        border-color: var(--main-color, #00ffcc);
     }
     .field-hint {
         font-size: 0.75rem;
-        color: rgba(0, 255, 204, 0.6);
+        color: var(--main-glow, rgba(0, 255, 204, 0.6));
         margin-top: -15px;
         margin-bottom: 20px;
         line-height: 1.3;
@@ -658,12 +658,12 @@
     .discord-sync-box {
         margin-bottom: 25px;
         padding: 15px;
-        border: 1px dashed rgba(0, 255, 204, 0.3);
-        background: rgba(0, 255, 204, 0.02);
+        border: 1px dashed var(--main-glow, rgba(0, 255, 204, 0.3));
+        background: var(--border-color, rgba(0, 255, 204, 0.02));
     }
     .discord-title {
         font-size: 0.75rem;
-        color: rgba(0, 255, 204, 0.7);
+        color: var(--main-glow, rgba(0, 255, 204, 0.7));
         letter-spacing: 1px;
         margin-bottom: 10px;
         font-weight: bold;
@@ -680,8 +680,8 @@
     }
     .discord-btn {
         background: transparent;
-        border: 1px solid rgba(0, 255, 204, 0.5);
-        color: #00ffcc;
+        border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.5));
+        color: var(--main-color, #00ffcc);
         padding: 6px 12px;
         font-size: 0.8rem;
         cursor: pointer;
@@ -690,9 +690,9 @@
         text-align: center;
     }
     .discord-btn:hover {
-        background: rgba(0, 255, 204, 0.15);
-        border-color: #00ffcc;
-        box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        background: var(--border-color, rgba(0, 255, 204, 0.15));
+        border-color: var(--main-color, #00ffcc);
+        box-shadow: 0 0 10px var(--border-color, rgba(0, 255, 204, 0.2));
     }
     .discord-btn.unlink {
         border-color: rgba(255, 51, 51, 0.5);
@@ -706,12 +706,12 @@
     .system-id-box {
         margin-bottom: 25px;
         padding: 12px 15px;
-        border: 1px dashed rgba(0, 255, 204, 0.3);
-        background: rgba(0, 255, 204, 0.02);
+        border: 1px dashed var(--main-glow, rgba(0, 255, 204, 0.3));
+        background: var(--border-color, rgba(0, 255, 204, 0.02));
     }
     .id-label {
         font-size: 0.75rem;
-        color: rgba(0, 255, 204, 0.7);
+        color: var(--main-glow, rgba(0, 255, 204, 0.7));
         letter-spacing: 1px;
         margin-bottom: 5px;
     }
@@ -730,8 +730,8 @@
     }
     .copy-btn {
         background: transparent;
-        border: 1px solid rgba(0, 255, 204, 0.5);
-        color: #00ffcc;
+        border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.5));
+        color: var(--main-color, #00ffcc);
         padding: 4px 10px;
         font-size: 0.75rem;
         cursor: pointer;
@@ -739,12 +739,12 @@
         margin-top: 0;
     }
     .copy-btn:hover {
-        background: rgba(0, 255, 204, 0.15);
-        border-color: #00ffcc;
+        background: var(--border-color, rgba(0, 255, 204, 0.15));
+        border-color: var(--main-color, #00ffcc);
     }
 
     .actions-row { display: flex; flex-direction: column; gap: 15px; }
-    .trend-detail-btn { border-color: #00ffcc; color: #00ffcc; }
+    .trend-detail-btn { border-color: var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); }
 
     @media (max-width: 1100px) {
         .dashboard-grid {
@@ -762,7 +762,7 @@
     }
     .id-card-section {
         margin-top: 20px;
-        border-top: 1px dashed rgba(0, 255, 204, 0.3);
+        border-top: 1px dashed var(--main-glow, rgba(0, 255, 204, 0.3));
         padding-top: 15px;
         display: flex;
         flex-direction: column;
@@ -771,27 +771,27 @@
     .id-card-title {
         font-size: 0.8rem;
         font-weight: bold;
-        color: #00ffcc;
+        color: var(--main-color, #00ffcc);
         letter-spacing: 1px;
     }
     .id-card-desc {
         font-size: 0.7rem;
-        color: rgba(0, 255, 204, 0.7);
+        color: var(--main-glow, rgba(0, 255, 204, 0.7));
         line-height: 1.3;
     }
     .id-card-btn {
         font-size: 0.8rem;
         padding: 8px;
-        border-color: #00ffcc;
-        color: #00ffcc;
+        border-color: var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
         background: transparent;
         cursor: pointer;
         font-family: inherit;
         transition: all 0.2s;
     }
     .id-card-btn:hover {
-        background: #00ffcc;
+        background: var(--main-color, #00ffcc);
         color: #000;
-        box-shadow: 0 0 10px #00ffcc;
+        box-shadow: 0 0 10px var(--main-color, #00ffcc);
     }
 </style>
