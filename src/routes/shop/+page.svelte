@@ -1,115 +1,43 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
     import { locale, dictionary } from '$lib/i18n';
+    import { enhance } from '$app/forms';
     import { currentUser as currentUsername, userAvatar as currentUserAvatar } from '$lib/stores';
 
-    let credits = 0;
-    let cosmetics: any[] = [];
-    let inventory: any[] = [];
-    let loading = true;
+    export let data: any;
+    export let form: any;
+
+    $: credits = data.credits || 0;
+    $: cosmetics = data.cosmetics || [];
+    $: inventory = data.inventory || [];
+    $: hasClaimedDaily = data.hasClaimedDaily || false;
+    $: role = data.role || 'CITIZEN';
+
     let errorMsg = '';
     let successMsg = '';
-    let hasClaimedDaily = false;
-    let role = 'CITIZEN';
 
     let searchQuery = '';
     let activeFilter = 'ALL';
-
-    let previewItem: any = null;
     let promoCode = '';
+    let previewItem: any = null;
 
-    onMount(async () => {
-        await loadShop();
-    });
-
-    async function loadShop() {
-        loading = true;
-        try {
-            const res = await fetch('/api/shop');
-            const data = await res.json();
-            if (data.success) {
-                credits = data.credits;
-                hasClaimedDaily = data.hasClaimedDaily;
-                role = data.role;
-                cosmetics = data.cosmetics;
-                inventory = data.inventory;
-            } else {
-                errorMsg = data.error || 'Failed to load shop.';
-            }
-        } catch (e) {
-            errorMsg = 'Network error.';
-        }
-        loading = false;
-    }
-
-    async function buyItem(item: any) {
-        errorMsg = '';
-        successMsg = '';
-        try {
-            const res = await fetch('/api/shop/action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'buy', cosmeticId: item.id })
-            });
-            const data = await res.json();
-            if (data.success) {
-                successMsg = `Purchased ${item.name} successfully!`;
-                await loadShop();
-            } else {
-                errorMsg = data.error;
-            }
-        } catch (e) {
-            errorMsg = 'Purchase failed.';
-        }
-    }
-
-    async function redeemCode() {
-        errorMsg = '';
-        successMsg = '';
-        if (!promoCode.trim()) return;
-        try {
-            const res = await fetch('/api/shop/redeem', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: promoCode })
-            });
-            const data = await res.json();
-            if (data.success) {
-                successMsg = data.message;
-                promoCode = '';
-                await loadShop();
-            } else {
-                errorMsg = data.error;
-            }
-        } catch (e) {
-            errorMsg = 'Redeem failed.';
-        }
-    }
-
-    async function claimDaily() {
-        errorMsg = '';
-        successMsg = '';
-        try {
-            const res = await fetch('/api/rewards/daily', { method: 'POST' });
-            const data = await res.json();
-            if (data.success && data.reward > 0) {
-                successMsg = data.message;
-                await loadShop();
-            } else {
-                errorMsg = data.error || data.message || 'Already claimed today.';
-            }
-        } catch (e) {
-            errorMsg = 'Failed to claim daily reward.';
+    $: if (form) {
+        if (form.success) {
+            successMsg = form.message;
+            errorMsg = '';
+            promoCode = '';
+        } else if (form.error) {
+            errorMsg = form.error;
+            successMsg = '';
         }
     }
 
     function isOwned(id: number) {
-        return inventory.some(i => i.cosmeticId === id);
+        return inventory.some((i: any) => i.cosmeticId === id);
     }
 
-    $: filteredCosmetics = cosmetics.filter(c => {
+    $: filteredCosmetics = cosmetics.filter((c: any) => {
         if (activeFilter !== 'ALL' && c.type !== activeFilter) return false;
         if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         return true;
@@ -128,12 +56,16 @@
         <div class="credits-display" style="display: flex; align-items: center;">
             <span>BALANCE: <span class="credit-value">{credits}</span> CREDITS</span>
             {#if !hasClaimedDaily}
-                <button class="sys-btn" style="margin-left: 15px; border-color: #ffd700; color: #ffd700; padding: 4px 10px;" on:click={claimDaily}>DAILY</button>
+                <form method="POST" action="?/daily" use:enhance style="display: inline-block; margin-left: 15px;">
+                    <button class="sys-btn" style="border-color: #ffd700; color: #ffd700; padding: 4px 10px;">DAILY</button>
+                </form>
             {/if}
         </div>
         <div class="promo-box">
-            <input type="text" bind:value={promoCode} placeholder="ENTER PROMO CODE..." />
-            <button class="sys-btn" on:click={redeemCode}>REDEEM</button>
+            <form method="POST" action="?/redeem" use:enhance style="display: flex; gap: 10px; width: 100%;">
+                <input type="text" name="code" bind:value={promoCode} placeholder="ENTER PROMO CODE..." />
+                <button class="sys-btn">REDEEM</button>
+            </form>
             {#if role === 'ADMIN'}
                 <button class="sys-btn" style="border-color: #ff3333; color: #ff3333;" on:click={() => goto('/admin/codes')}>CREATE CODE</button>
                 <button class="sys-btn" style="border-color: #ff00ff; color: #ff00ff;" on:click={() => goto('/admin/cosmetics')}>CREATE COSMETIC</button>
@@ -171,9 +103,12 @@
                 {#if isOwned(item.id)}
                     <button class="sys-btn owned-btn" disabled>OWNED</button>
                 {:else}
-                    <button class="sys-btn buy-btn" disabled={credits < item.price} on:click={() => buyItem(item)}>
-                        BUY - {item.price} CREDITS
-                    </button>
+                    <form method="POST" action="?/buy" use:enhance style="width: 100%;">
+                        <input type="hidden" name="cosmeticId" value={item.id} />
+                        <button class="sys-btn buy-btn" disabled={credits < item.price}>
+                            BUY - {item.price} CREDITS
+                        </button>
+                    </form>
                 {/if}
             </div>
         {/each}
@@ -184,7 +119,11 @@
             <div class="preview-title">{$dictionary[$locale].SHOP_PREVIEW_TITLE}</div>
             {#if previewItem.type === 'avatar_border'}
                 <div class="avatar-wrapper {previewItem.value}" style="width: 100px; height: 100px;">
-                    <img src={$currentUserAvatar || '/default-avatar.png'} alt="Preview" class="chat-avatar" style="width: 100%; height: 100%;" />
+                    {#if $currentUserAvatar}
+                        <img src={$currentUserAvatar} alt="Preview" class="chat-avatar" style="width: 100%; height: 100%;" />
+                    {:else}
+                        <div style="width: 100%; height: 100%; background: #222; display: flex; align-items: center; justify-content: center; color: #555; border-radius: inherit;">NO IMG</div>
+                    {/if}
                 </div>
             {:else if previewItem.type === 'name_effect'}
                 <div class="sender-name {previewItem.value}" data-text="{$currentUsername?.toUpperCase()}">

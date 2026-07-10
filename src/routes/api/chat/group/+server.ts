@@ -9,12 +9,27 @@ export const GET: RequestHandler = async ({ cookies }) => {
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const groups = db.prepare(`
+        let query = `
             SELECT g.*, 
                    (SELECT COUNT(*) FROM chat_group_members WHERE groupId = g.id) as memberCount,
-                   (SELECT 1 FROM chat_group_members WHERE groupId = g.id AND userId = ?) as isMember
+                   1 as isMember
             FROM chat_groups g
-        `).all(user.id) as any[];
+            JOIN chat_group_members cgm ON g.id = cgm.groupId
+            WHERE cgm.userId = ?
+        `;
+        let params = [user.id];
+
+        if (user.role === 'ADMIN') {
+            query = `
+                SELECT g.*, 
+                       (SELECT COUNT(*) FROM chat_group_members WHERE groupId = g.id) as memberCount,
+                       (SELECT 1 FROM chat_group_members WHERE groupId = g.id AND userId = ?) as isMember
+                FROM chat_groups g
+            `;
+            params = [user.id];
+        }
+
+        const groups = db.prepare(query).all(...params) as any[];
 
         return json({ groups: groups.map(g => ({ ...g, isMember: Boolean(g.isMember) })) });
     } catch (e: any) {

@@ -51,12 +51,12 @@
         <form class="create-panel" transition:fade method="POST" action="?/create" use:enhance>
             <h3>{$dictionary[$locale].GRP_CREATE_HEADER}</h3>
             <div class="form-group">
-                <label>{$dictionary[$locale].GRP_LABEL_NAME}</label>
-                <input type="text" name="name" bind:value={newGroupName} placeholder={$dictionary[$locale].GRP_PLACEHOLDER_NAME} maxlength="50" />
+                <label for="newGroupName">{$dictionary[$locale].GRP_LABEL_NAME}</label>
+                <input type="text" id="newGroupName" name="name" bind:value={newGroupName} placeholder={$dictionary[$locale].GRP_PLACEHOLDER_NAME} maxlength="50" />
             </div>
             <div class="form-group">
-                <label>{$dictionary[$locale].GRP_LABEL_MAX_CC}</label>
-                <input type="number" name="maxCC" bind:value={newGroupMaxCC} min="0" max="999" />
+                <label for="newGroupMaxCC">{$dictionary[$locale].GRP_LABEL_MAX_CC}</label>
+                <input type="number" id="newGroupMaxCC" name="maxCC" bind:value={newGroupMaxCC} min="0" max="999" />
                 <span class="hint">{$dictionary[$locale].GRP_HINT_MAX_CC}</span>
             </div>
             <button class="submit-btn" type="submit">{$dictionary[$locale].GRP_BTN_INIT}</button>

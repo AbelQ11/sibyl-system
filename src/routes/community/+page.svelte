@@ -1,99 +1,32 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { locale, dictionary } from '$lib/i18n';
-    import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
+    import { enhance } from '$app/forms';
+    import { goto } from '$app/navigation';
 
-    export let data;
+    export let data: any;
+    export let form: any;
 
-    let users: any[] = [];
-    let query = '';
-    let loading = true;
+    $: users = data.users || [];
+    $: query = data.query || '';
+    
+    let loading = false;
     let statusMessage = '';
     let statusType: 'SUCCESS' | 'ERROR' = 'SUCCESS';
 
+    $: if (form) {
+        if (form.success) {
+            statusType = 'SUCCESS';
+            statusMessage = $dictionary[$locale][String(form.code) as keyof typeof $dictionary[typeof $locale]] || 'Success.';
+        } else if (form.error) {
+            statusType = 'ERROR';
+            statusMessage = $dictionary[$locale][String(form.error) as keyof typeof $dictionary[typeof $locale]] || form.error;
+        }
+    }
+
     const currentUserId = data?.user?.id;
 
-    async function searchCommunity() {
-        loading = true;
-        statusMessage = '';
-        try {
-            const res = await fetch(`/api/community?query=${encodeURIComponent(query)}`);
-            if (res.ok) {
-                const payload = await res.json();
-                users = payload.users || [];
-            } else {
-                statusType = 'ERROR';
-                statusMessage = 'Failed to fetch directory list.';
-            }
-        } catch (err) {
-            statusType = 'ERROR';
-            statusMessage = 'System connection error.';
-        } finally {
-            loading = false;
-        }
-    }
 
-    onMount(() => {
-        searchCommunity();
-    });
-
-    async function sendSyncRequest(username: string) {
-        statusMessage = '';
-        try {
-            const res = await fetch('/api/friends', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetIdentifier: username })
-            });
-            const payload = await res.json();
-            if (res.ok) {
-                statusType = 'SUCCESS';
-                statusMessage = $dictionary[$locale][payload.code] || 'Sync request sent.';
-                searchCommunity();
-            } else {
-                statusType = 'ERROR';
-                statusMessage = $dictionary[$locale][payload.error] || 'Failed to sync.';
-            }
-        } catch (err) {
-            statusType = 'ERROR';
-            statusMessage = 'System connection link failure.';
-        }
-    }
-
-    async function acceptRequest(requestId: number) {
-        try {
-            const res = await fetch('/api/friends', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId })
-            });
-            if (res.ok) {
-                statusType = 'SUCCESS';
-                statusMessage = $dictionary[$locale].NET_SUCCESS_ACCEPTED;
-                searchCommunity();
-            }
-        } catch (err) {
-            console.error('Failed to accept request:', err);
-        }
-    }
-
-    async function cancelOrDeclineRequest(requestId: number) {
-        try {
-            const res = await fetch('/api/friends', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId })
-            });
-            if (res.ok) {
-                statusType = 'SUCCESS';
-                statusMessage = $dictionary[$locale].NET_SUCCESS_DECLINED;
-                searchCommunity();
-            }
-        } catch (err) {
-            console.error('Failed to cancel request:', err);
-        }
-    }
 
     function getPrivacyLabel(privacy: string) {
         if (privacy === 'PRIVATE') return $dictionary[$locale].ACC_PRIVACY_PRIVATE || 'PRIVATE';
@@ -117,28 +50,10 @@
         <h1 class="header">{$dictionary[$locale].COM_TITLE}</h1>
         <div class="security-level">{$dictionary[$locale].COM_STATUS}</div>
 
-        <div class="search-form-panel card-border">
-            <form on:submit|preventDefault={searchCommunity} class="search-form">
-                <label for="search-query">{$dictionary[$locale].COM_SEARCH_LABEL}</label>
-                <div class="search-input-row">
-                    <input 
-                        id="search-query" 
-                        type="text" 
-                        bind:value={query} 
-                        placeholder={$dictionary[$locale].COM_SEARCH_PLACEHOLDER}
-                        autocomplete="off" 
-                        spellcheck="false" 
-                        on:input={searchCommunity}
-                    />
-                    <button type="submit" class="action-btn">{$dictionary[$locale].AUTH_BTN_EXECUTE}</button>
-                </div>
-                {#if statusMessage}
-                    <div class="status-msg" class:success={statusType === 'SUCCESS'} class:error={statusType === 'ERROR'}>
-                        {statusMessage}
-                    </div>
-                {/if}
-            </form>
-        </div>
+        <form method="GET" class="search-bar" data-sveltekit-keepfocus>
+            <input type="text" name="q" bind:value={query} placeholder={$dictionary[$locale].NET_SYNC_PLACEHOLDER} />
+            <button type="submit" class="sys-btn">{$dictionary[$locale].NET_SYNC_BTN}</button>
+        </form>
 
         <div class="results-panel card-border">
             {#if loading}
@@ -157,69 +72,60 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {#each users as citizen}
+                            {#each users as u}
                                 <tr>
                                     <td>
                                         <div class="citizen-cell">
                                             <div class="avatar-frame">
-                                                {#if citizen.avatar}
-                                                    <img src={citizen.avatar} alt={citizen.username} />
+                                                {#if u.avatar}
+                                                    <img src={u.avatar} alt={u.username} />
                                                 {:else}
                                                     <div class="blank-avatar"></div>
                                                 {/if}
                                             </div>
-                                            <span class="username">{citizen.username.toUpperCase()}</span>
+                                            <span class="username">{u.username.toUpperCase()}</span>
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="system-id">{citizen.citizen_id || 'SIB-PENDING'}</span>
+                                        <span class="system-id">{u.citizen_id || 'SIB-PENDING'}</span>
                                     </td>
                                     <td>
-                                        <span class="privacy-badge {citizen.privacy || 'PRIVATE'}">
-                                            {getPrivacyLabel(citizen.privacy)}
+                                        <span class="privacy-badge {u.privacy || 'PRIVATE'}">
+                                            {getPrivacyLabel(u.privacy)}
                                         </span>
                                     </td>
                                     <td>
                                         <div class="action-cell">
                                             {#if data?.user?.role === 'ADMIN'}
-                                                <button class="inspect-btn" on:click={() => goto(`/citizen/${citizen.username}`)}>
+                                                <button class="inspect-btn" on:click={() => goto(`/citizen/${u.username}`)}>
                                                     {$dictionary[$locale].COM_BTN_INSPECT}
                                                 </button>
                                             {:else}
-                                                {#if citizen.requestStatus === 'ACCEPTED'}
-                                                    <span class="status-tag friend">{$dictionary[$locale].COM_TAG_FRIEND}</span>
-                                                    <button class="inspect-btn" on:click={() => goto(`/citizen/${citizen.username}`)}>
-                                                        {$dictionary[$locale].COM_BTN_INSPECT}
-                                                    </button>
-                                                {:else if citizen.requestStatus === 'PENDING'}
-                                                    {#if citizen.requestSenderId === currentUserId}
-                                                        <span class="status-tag pending">{$dictionary[$locale].COM_TAG_PENDING}</span>
-                                                        <button class="cancel-btn" on:click={() => cancelOrDeclineRequest(citizen.requestId)}>
-                                                            {$dictionary[$locale].NET_BTN_CANCEL}
-                                                        </button>
+                                                {#if u.requestStatus === 'PENDING'}
+                                                    {#if u.requestSenderId === currentUserId}
+                                                        <form method="POST" action="/friends?/cancelRequest" use:enhance>
+                                                            <input type="hidden" name="requestId" value={u.requestId} />
+                                                            <button class="sys-btn cancel-btn">{$dictionary[$locale].NET_BTN_CANCEL}</button>
+                                                        </form>
                                                     {:else}
-                                                        <div class="incoming-actions">
-                                                            <button class="accept-btn" on:click={() => acceptRequest(citizen.requestId)}>
-                                                                {$dictionary[$locale].NET_BTN_ACCEPT}
-                                                            </button>
-                                                            <button class="decline-btn" on:click={() => cancelOrDeclineRequest(citizen.requestId)}>
-                                                                {$dictionary[$locale].NET_BTN_DECLINE}
-                                                            </button>
+                                                        <div class="action-row">
+                                                            <form method="POST" action="/friends?/acceptRequest" use:enhance>
+                                                                <input type="hidden" name="requestId" value={u.requestId} />
+                                                                <button class="sys-btn action-btn">{$dictionary[$locale].NET_BTN_ACCEPT}</button>
+                                                            </form>
+                                                            <form method="POST" action="/friends?/declineRequest" use:enhance>
+                                                                <input type="hidden" name="requestId" value={u.requestId} />
+                                                                <button class="sys-btn cancel-btn">{$dictionary[$locale].NET_BTN_DECLINE}</button>
+                                                            </form>
                                                         </div>
                                                     {/if}
+                                                {:else if u.requestStatus === 'ACCEPTED'}
+                                                    <button class="sys-btn disabled-btn" disabled>{$dictionary[$locale].TRENDS_STATUS_CONNECTED}</button>
                                                 {:else}
-                                                    {#if citizen.privacy === 'PRIVATE'}
-                                                        <span class="status-tag private">{$dictionary[$locale].COM_TAG_PRIVATE}</span>
-                                                    {/if}
-                                                    <button class="sync-btn" on:click={() => sendSyncRequest(citizen.username)}>
-                                                        {$dictionary[$locale].COM_BTN_SEND_REQ}
-                                                    </button>
-                                                    
-                                                    {#if citizen.privacy === 'PUBLIC'}
-                                                        <button class="inspect-btn" on:click={() => goto(`/citizen/${citizen.username}`)}>
-                                                            {$dictionary[$locale].COM_BTN_INSPECT}
-                                                        </button>
-                                                    {/if}
+                                                    <form method="POST" action="/friends?/sendRequest" use:enhance>
+                                                        <input type="hidden" name="targetIdentifier" value={u.username} />
+                                                        <button class="sys-btn action-btn">{$dictionary[$locale].NET_SYNC_BTN}</button>
+                                                    </form>
                                                 {/if}
                                             {/if}
                                         </div>

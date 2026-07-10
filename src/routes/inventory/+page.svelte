@@ -1,65 +1,34 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
+    import { enhance } from '$app/forms';
 
-    let cosmetics: any[] = [];
-    let inventory: any[] = [];
-    let loading = true;
+    export let data: any;
+    export let form: any;
+
+    $: cosmetics = data.cosmetics || [];
+    $: inventory = data.inventory || [];
+    
     let errorMsg = '';
     let successMsg = '';
 
-    onMount(async () => {
-        await loadShop();
-    });
-
-    async function loadShop() {
-        loading = true;
-        try {
-            const res = await fetch('/api/shop');
-            const data = await res.json();
-            if (data.success) {
-                cosmetics = data.cosmetics;
-                inventory = data.inventory;
-            } else {
-                errorMsg = data.error || 'Failed to load inventory.';
+    $: if (form) {
+        if (form.success) {
+            successMsg = form.message;
+            errorMsg = '';
+            if (form.reload) {
+                setTimeout(() => window.location.reload(), 500);
             }
-        } catch (e) {
-            errorMsg = 'Network error.';
-        }
-        loading = false;
-    }
-
-    async function toggleEquip(item: any, isEquipped: boolean) {
-        errorMsg = '';
-        successMsg = '';
-        const action = isEquipped ? 'unequip' : 'equip';
-        try {
-            const res = await fetch('/api/shop/action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, cosmeticId: item.id })
-            });
-            const data = await res.json();
-            if (data.success) {
-                successMsg = data.message;
-                if (item.type === 'interface_theme' || item.type === 'pointer_skin') {
-                    window.location.reload();
-                } else {
-                    await loadShop();
-                }
-            } else {
-                errorMsg = data.error;
-            }
-        } catch (e) {
-            errorMsg = 'Action failed.';
+        } else if (form.error) {
+            errorMsg = form.error;
+            successMsg = '';
         }
     }
 
-    $: ownedItems = cosmetics.filter(c => inventory.some(i => i.cosmeticId === c.id));
+    $: ownedItems = cosmetics.filter((c: any) => inventory.some((i: any) => i.cosmeticId === c.id));
     
     function isEquipped(id: number) {
-        const item = inventory.find(i => i.cosmeticId === id);
+        const item = inventory.find((i: any) => i.cosmeticId === id);
         return item && item.equipped === 1;
     }
 </script>
@@ -84,9 +53,7 @@
         <div class="alert success">{successMsg}</div>
     {/if}
 
-    {#if loading}
-        <div style="text-align: center; margin-top: 50px;">LOADING INVENTORY...</div>
-    {:else if ownedItems.length === 0}
+    {#if ownedItems.length === 0}
         <div style="text-align: center; margin-top: 50px;">YOU DO NOT OWN ANY COSMETICS.</div>
     {:else}
         <div class="shop-grid">
@@ -95,15 +62,20 @@
                     <div class="card-type">{item.type.replace('_', ' ').toUpperCase()}</div>
                     <div class="card-name">{item.name}</div>
                     <div class="card-desc">{item.description}</div>
-                    
                     {#if isEquipped(item.id)}
-                        <button class="sys-btn unequip-btn" on:click={() => toggleEquip(item, true)}>
-                            UNEQUIP
-                        </button>
+                        <form method="POST" action="?/unequip" use:enhance style="width: 100%;">
+                            <input type="hidden" name="cosmeticId" value={item.id} />
+                            <button class="sys-btn unequip-btn">
+                                UNEQUIP
+                            </button>
+                        </form>
                     {:else}
-                        <button class="sys-btn equip-btn" on:click={() => toggleEquip(item, false)}>
-                            EQUIP
-                        </button>
+                        <form method="POST" action="?/equip" use:enhance style="width: 100%;">
+                            <input type="hidden" name="cosmeticId" value={item.id} />
+                            <button class="sys-btn equip-btn">
+                                EQUIP
+                            </button>
+                        </form>
                     {/if}
                 </div>
             {/each}

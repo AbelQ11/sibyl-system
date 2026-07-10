@@ -378,7 +378,6 @@
                 inputText = '';
                 replyingToMessage = null;
                 attachmentBase64 = null;
-                if (attachmentInput) attachmentInput.value = '';
                 /** read-once stays toggled according to the user's preference for multiple messages */
             }
         } catch (e) {
@@ -829,5 +828,4 @@
     }
     
     .char-count { text-align: right; font-size: 0.75rem; margin-top: 8px; opacity: 0.7; }
-    .char-count.limit { color: #ff3333; font-weight: bold; opacity: 1; }
 </style>

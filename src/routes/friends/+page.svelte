@@ -1,93 +1,27 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { locale, dictionary } from '$lib/i18n';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
+    import { enhance } from '$app/forms';
 
-    let friends: any[] = [];
-    let incoming: any[] = [];
-    let outgoing: any[] = [];
-    let loading = true;
+    export let data: any;
+    export let form: any;
+
+    $: friends = data.friends || [];
+    $: incoming = data.incoming || [];
+    $: outgoing = data.outgoing || [];
+    
     let targetIdentifier = '';
     let statusMessage = '';
     let statusType: 'SUCCESS' | 'ERROR' = 'SUCCESS';
 
-    async function fetchNetworkData() {
-        try {
-            const res = await fetch('/api/friends');
-            if (res.ok) {
-                const data = await res.json();
-                friends = data.friends || [];
-                incoming = data.incoming || [];
-                outgoing = data.outgoing || [];
-            }
-        } catch (err) {
-            console.error('Failed to query network connections:', err);
-        } finally {
-            loading = false;
-        }
-    }
-
-    onMount(() => {
-        fetchNetworkData();
-    });
-
-    async function sendSyncRequest() {
-        if (!targetIdentifier) return;
-        statusMessage = '';
-        try {
-            const res = await fetch('/api/friends', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetIdentifier })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                statusType = 'SUCCESS';
-                statusMessage = $dictionary[$locale][data.code] || 'Sync request sent.';
-                targetIdentifier = '';
-                fetchNetworkData();
-            } else {
-                statusType = 'ERROR';
-                statusMessage = $dictionary[$locale][data.error] || 'Failed to sync.';
-            }
-        } catch (err) {
+    $: if (form) {
+        if (form.success) {
+            statusType = 'SUCCESS';
+            statusMessage = $dictionary[$locale][String(form.code) as keyof typeof $dictionary[typeof $locale]] || 'Success.';
+        } else if (form.error) {
             statusType = 'ERROR';
-            statusMessage = 'System connection link failure.';
-        }
-    }
-
-    async function acceptRequest(requestId: number) {
-        try {
-            const res = await fetch('/api/friends', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId })
-            });
-            if (res.ok) {
-                statusType = 'SUCCESS';
-                statusMessage = $dictionary[$locale].NET_SUCCESS_ACCEPTED;
-                fetchNetworkData();
-            }
-        } catch (err) {
-            console.error('Failed to accept sync request:', err);
-        }
-    }
-
-    async function removeConnection(requestId?: number, friendId?: number) {
-        try {
-            const res = await fetch('/api/friends', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId, friendId })
-            });
-            if (res.ok) {
-                statusType = 'SUCCESS';
-                statusMessage = $dictionary[$locale].NET_SUCCESS_DECLINED;
-                fetchNetworkData();
-            }
-        } catch (err) {
-            console.error('Failed to terminate sync connection:', err);
+            statusMessage = $dictionary[$locale][String(form.error) as keyof typeof $dictionary[typeof $locale]] || form.error;
         }
     }
 
@@ -119,110 +53,109 @@
         <div class="security-level">{$dictionary[$locale].NET_STATUS}</div>
 
         <div class="sync-form-panel card-border">
-            <form on:submit|preventDefault={sendSyncRequest} class="sync-form">
-                <label for="identifier">{$dictionary[$locale].NET_SYNC_LABEL}</label>
-                <div class="sync-input-row">
-                    <input 
-                        id="identifier" 
-                        type="text" 
-                        bind:value={targetIdentifier} 
-                        placeholder={$dictionary[$locale].NET_SYNC_PLACEHOLDER}
-                        autocomplete="off" 
-                        spellcheck="false" 
-                    />
-                    <button type="submit" class="action-btn">{$dictionary[$locale].NET_SYNC_BTN}</button>
-                </div>
-                {#if statusMessage}
-                    <div class="status-msg" class:success={statusType === 'SUCCESS'} class:error={statusType === 'ERROR'}>
-                        {statusMessage}
-                    </div>
-                {/if}
+            <h2>{$dictionary[$locale].NET_SYNC_LABEL}</h2>
+            <form method="POST" action="?/sendRequest" use:enhance class="sync-form">
+                <input 
+                    type="text" 
+                    name="targetIdentifier"
+                    class="sys-input" 
+                    bind:value={targetIdentifier} 
+                    placeholder={$dictionary[$locale].NET_SYNC_PLACEHOLDER} 
+                    autocomplete="off"
+                />
+                <button class="sys-btn action-btn">{$dictionary[$locale].NET_SYNC_BTN}</button>
             </form>
+            {#if statusMessage}
+                <div class="status-msg" class:success={statusType === 'SUCCESS'} class:error={statusType === 'ERROR'}>
+                    {statusMessage}
+                </div>
+            {/if}
         </div>
 
         <div class="network-grid">
             <div class="pending-panel card-border">
                 <div class="sub-section">
                     <h2 class="section-title">{$dictionary[$locale].NET_INCOMING_TITLE}</h2>
-                    {#if loading}
-                        <div class="loading-state">RETRIEVING...</div>
-                    {:else if incoming.length === 0}
+                    {#if incoming.length === 0}
                         <div class="empty-state">{$dictionary[$locale].NET_NO_INCOMING}</div>
                     {:else}
-                        <ul class="request-list">
-                            {#each incoming as req}
-                                <li class="request-item">
-                                    <div class="citizen-info">
-                                        <div class="avatar-frame">
-                                            {#if req.avatar}
-                                                <img src={req.avatar} alt={req.username} />
-                                            {:else}
-                                                <div class="blank-avatar"></div>
-                                            {/if}
-                                        </div>
-                                        <div class="meta">
-                                            <span class="username">{req.username.toUpperCase()}</span>
-                                            <span class="system-id">{req.citizen_id}</span>
-                                        </div>
-                                    </div>
-                                    <div class="actions">
-                                        <button class="accept-btn" on:click={() => acceptRequest(req.requestId)}>
-                                            {$dictionary[$locale].NET_BTN_ACCEPT}
-                                        </button>
-                                        <button class="decline-btn" on:click={() => removeConnection(req.requestId)}>
-                                            {$dictionary[$locale].NET_BTN_DECLINE}
-                                        </button>
-                                    </div>
-                                </li>
-                            {/each}
-                        </ul>
+                        <table class="data-table">
+                            <tbody>
+                                {#each incoming as req}
+                                    <tr>
+                                        <td>
+                                            <div class="citizen-cell">
+                                                <div class="avatar-sm">
+                                                    {#if req.avatar}
+                                                        <img src={req.avatar} alt={req.username} />
+                                                    {:else}
+                                                        <div class="blank-avatar"></div>
+                                                    {/if}
+                                                </div>
+                                                <span class="username">{req.username.toUpperCase()}</span>
+                                                <span class="system-id">{req.citizen_id}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="action-cell">
+                                                <form method="POST" action="?/acceptRequest" use:enhance>
+                                                    <input type="hidden" name="requestId" value={req.requestId} />
+                                                    <button class="sys-btn action-btn">{$dictionary[$locale].NET_BTN_ACCEPT}</button>
+                                                </form>
+                                                <form method="POST" action="?/declineRequest" use:enhance>
+                                                    <input type="hidden" name="requestId" value={req.requestId} />
+                                                    <button class="decline-btn">{$dictionary[$locale].NET_BTN_DECLINE}</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
                     {/if}
                 </div>
 
                 <div class="sub-section border-top">
-                    <h2 class="section-title">{$dictionary[$locale].NET_OUTGOING_TITLE}</h2>
-                    {#if loading}
-                        <div class="loading-state">RETRIEVING...</div>
-                    {:else if outgoing.length === 0}
-                        <div class="empty-state">{$dictionary[$locale].NET_NO_OUTGOING}</div>
-                    {:else}
-                        <ul class="request-list">
-                            {#each outgoing as req}
-                                <li class="request-item">
-                                    <div class="citizen-info">
-                                        <div class="avatar-frame">
-                                            {#if req.avatar}
-                                                <img src={req.avatar} alt={req.username} />
-                                            {:else}
-                                                <div class="blank-avatar"></div>
-                                            {/if}
-                                        </div>
-                                        <div class="meta">
-                                            <span class="username">{req.username.toUpperCase()}</span>
-                                            <span class="system-id">{req.citizen_id}</span>
-                                        </div>
-                                    </div>
-                                    <div class="actions">
-                                        <button class="decline-btn" on:click={() => removeConnection(req.requestId)}>
-                                            {$dictionary[$locale].NET_BTN_CANCEL}
-                                        </button>
-                                    </div>
-                                </li>
-                            {/each}
-                        </ul>
+                    <h3 class="section-title">{$dictionary[$locale].NET_OUTGOING_TITLE}</h3>
+                    {#if outgoing.length > 0}
+                        <table class="data-table">
+                            <tbody>
+                                {#each outgoing as req}
+                                    <tr>
+                                        <td>
+                                            <div class="citizen-cell">
+                                                <div class="avatar-sm">
+                                                    {#if req.avatar}
+                                                        <img src={req.avatar} alt={req.username} />
+                                                    {:else}
+                                                        <div class="blank-avatar"></div>
+                                                    {/if}
+                                                </div>
+                                                <span class="username">{req.username.toUpperCase()}</span>
+                                                <span class="system-id">({req.citizen_id})</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-right">
+                                            <form method="POST" action="?/declineRequest" use:enhance>
+                                                <input type="hidden" name="requestId" value={req.requestId} />
+                                                <button class="decline-btn">{$dictionary[$locale].NET_BTN_CANCEL}</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
                     {/if}
                 </div>
             </div>
 
             <div class="active-panel card-border">
                 <h2 class="section-title">{$dictionary[$locale].NET_ACTIVE_TITLE}</h2>
-                {#if loading}
-                    <div class="loading-state">RETRIEVING...</div>
-                {:else if friends.length === 0}
+                {#if friends.length === 0}
                     <div class="empty-state">{$dictionary[$locale].NET_NO_ACTIVE}</div>
                 {:else}
                     <ul class="friends-list">
-                        {#each friends.filter(f => f.role !== 'ADMIN') as friend}
+                        {#each friends.filter((f: any) => f.role !== 'ADMIN') as friend}
                             {@const ccInfo = getCCInfo(friend.last_cc)}
                             <li class="friend-item">
                                 <a href="/citizen/{friend.username}" class="friend-link-container">
@@ -244,11 +177,12 @@
                                     </div>
                                 </a>
                                 <div class="friend-actions">
+                                    <form method="POST" action="?/removeFriend" use:enhance class="remove-friend-form">
+                                        <input type="hidden" name="friendId" value={friend.id} />
+                                        <button class="desync-btn" title="Sever Connection">{$dictionary[$locale].NET_BTN_DESYNC}</button>
+                                    </form>
                                     <button class="chat-btn" on:click={() => goto(`/chat?private=${friend.id}`)}>
                                         [ SECURE CHAT ]
-                                    </button>
-                                    <button class="desync-btn" on:click={() => removeConnection(undefined, friend.id)}>
-                                        {$dictionary[$locale].NET_BTN_DESYNC}
                                     </button>
                                 </div>
                             </li>

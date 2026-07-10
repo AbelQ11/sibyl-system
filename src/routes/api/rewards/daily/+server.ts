@@ -1,27 +1,25 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { getSession } from '$lib/server/session';
+import { getAuthUser } from '$lib/server/auth';
+import type { RequestHandler } from './$types';
 
-export async function POST({ cookies }) {
-    const session = getSession(cookies.get('session'));
-    if (!session) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = session.userId;
-    const today = new Date().toISOString().split('T')[0];
+export const POST: RequestHandler = async ({ cookies }) => {
+    const user = getAuthUser(cookies.get('session'));
+    if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const userData = db.prepare('SELECT last_login_date FROM users WHERE id = ?').get(userId) as { last_login_date: string };
-        
-        if (userData && userData.last_login_date !== today) {
-            db.prepare('UPDATE users SET last_login_date = ?, credits = credits + 50 WHERE id = ?').run(today, userId);
-            return json({ success: true, reward: 50, message: 'Daily connection reward claimed.' });
+        const dbUser = db.prepare('SELECT last_login_date FROM users WHERE id = ?').get(user.id) as any;
+        const today = new Date().toISOString().split('T')[0];
+
+        if (dbUser.last_login_date === today) {
+            return json({ success: false, error: 'Already claimed today' }, { status: 400 });
         }
-        
-        return json({ success: false, reward: 0, message: 'Reward already claimed today.' });
+
+        const reward = 50;
+        db.prepare('UPDATE users SET credits = credits + ?, last_login_date = ? WHERE id = ?').run(reward, today, user.id);
+
+        return json({ success: true, reward, message: `Daily reward claimed: ${reward} credits.` });
     } catch (e) {
-        console.error('Failed to claim daily reward:', e);
-        return json({ error: 'Internal server error' }, { status: 500 });
+        return json({ error: 'Internal Server Error' }, { status: 500 });
     }
-}
+};

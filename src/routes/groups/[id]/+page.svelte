@@ -1,125 +1,56 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { dictionary, locale } from '$lib/i18n';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
-
-    let group: any = null;
-    let roster: any[] = [];
-    let avgCC: string = '0.0';
-    let loading = true;
-    let error = '';
-    let isMember = false;
-    let isEnforcer = false;
+    import { enhance } from '$app/forms';
 
     export let data: any;
+    export let form: any;
+
     const currentUser = data?.user;
 
+    $: group = data.group;
+    $: roster = data.roster || [];
+    $: avgCC = data.avgCC || '0.0';
+    $: friends = data.friends || [];
+    $: pendingGroupRequests = data.pendingGroupRequests || [];
+    $: errorMsg = data.error || '';
+    $: isMember = roster.some((m: any) => m.id === currentUser?.id);
+    $: isEnforcer = roster.some((m: any) => m.id === currentUser?.id && m.role === 'ENFORCER');
+
+    $: newBio = group?.bio || '';
+    $: newMaxCC = group?.maxCC || 100;
+    $: newName = group?.name || '';
+    
     let editBioMode = false;
     let editMaxCCMode = false;
     let editNameMode = false;
-    let newBio = '';
-    let newMaxCC = 100;
-    let newName = '';
     
     /** 'roster' | 'invites' */
     let activeTab = 'roster';
-    
-    let friends: any[] = [];
-    let pendingGroupRequests: any[] = [];
     let selectedFriendToInvite: number | null = null;
     let inviteDropdownOpen = false;
 
     const groupId = $page.params.id;
 
-    onMount(async () => {
-        await loadGroup();
-    });
-
-    async function loadGroup() {
-        loading = true;
-        try {
-            const res = await fetch(`/api/group/${groupId}`);
-            if (res.ok) {
-                const d = await res.json();
-                group = d.group;
-                roster = d.roster;
-                avgCC = d.avgCC;
-                newBio = group.bio || '';
-                newMaxCC = group.maxCC || 100;
-                newName = group.name || '';
-                isMember = roster.some((m: any) => m.id === currentUser.id);
-                isEnforcer = roster.some((m: any) => m.id === currentUser.id && m.role === 'ENFORCER');
-            } else {
-                error = $dictionary[$locale].GRP_DET_ERR_LOAD;
-            }
-        } catch(e) {
-            error = $dictionary[$locale].GRP_DET_ERR_NET;
+    $: if (form) {
+        if (form.success) {
+            editBioMode = false;
+            editMaxCCMode = false;
+            editNameMode = false;
+            inviteDropdownOpen = false;
+            selectedFriendToInvite = null;
+            if (form.message) alert(form.message);
+        } else if (form.error) {
+            alert(form.error);
         }
-
-        try {
-            const res = await fetch('/api/friends');
-            if (res.ok) {
-                const d = await res.json();
-                friends = d.friends || [];
-            }
-        } catch (e) {}
-
-        if (currentUser.role === 'ADMIN' || currentUser.id === group?.inspectorId) {
-            try {
-                const res = await fetch(`/api/group/${groupId}/requests`);
-                if (res.ok) {
-                    const d = await res.json();
-                    pendingGroupRequests = d.requests || [];
-                }
-            } catch (e) {}
-        }
-
-        loading = false;
     }
 
-    async function saveGroupSettings() {
-        try {
-            const res = await fetch(`/api/group/${groupId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bio: newBio, maxCC: newMaxCC, name: newName })
-            });
-            if (res.ok) {
-                group.bio = newBio;
-                group.maxCC = newMaxCC;
-                group.name = newName;
-                editBioMode = false;
-                editMaxCCMode = false;
-                editNameMode = false;
-            } else {
-                alert($dictionary[$locale].GRP_DET_ERR_SET);
-            }
-        } catch(e) {}
-    }
 
-    async function inviteFriend() {
-        if (!selectedFriendToInvite) return;
-        try {
-            const res = await fetch('/api/chat/group/invite', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ groupId: parseInt(groupId), friendId: selectedFriendToInvite })
-            });
-            if (res.ok) {
-                alert($dictionary[$locale].GRP_DET_MSG_INVITE);
-                inviteDropdownOpen = false;
-                selectedFriendToInvite = null;
-            } else {
-                const d = await res.json();
-                alert(d.error);
-            }
-        } catch (e) {}
-    }
 
-    /** Avatar Upload Logic */
     let fileInput: HTMLInputElement;
+    let avatarForm: HTMLFormElement;
 
     function triggerUpload() {
         if (currentUser.role === 'ADMIN' || currentUser.id === group.inspectorId) {
@@ -134,113 +65,18 @@
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64Avatar = e.target?.result as string;
-            await uploadAvatar(base64Avatar);
+            
+            const hiddenInput = avatarForm.querySelector('input[name="avatar"]') as HTMLInputElement;
+            hiddenInput.value = base64Avatar;
+            avatarForm.requestSubmit();
         };
         reader.readAsDataURL(file);
-    }
-
-    async function uploadAvatar(base64Avatar: string) {
-        try {
-            const res = await fetch('/api/group/save-avatar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ avatar: base64Avatar, groupId: parseInt(groupId) })
-            });
-            if (res.ok) {
-                group.avatar = base64Avatar;
-            } else {
-                alert($dictionary[$locale].GRP_DET_ERR_AVATAR);
-            }
-        } catch (e) {
-            alert($dictionary[$locale].GRP_DET_ERR_UP);
-        }
     }
 
     function getHueClass(cc: number) {
         if (cc > 300) return 'hue-critical';
         if (cc > 100) return 'hue-warning';
         return 'hue-optimal';
-    }
-
-    async function changeRole(memberId: number, action: 'PROMOTE' | 'DEMOTE') {
-        if (!confirm(action === 'PROMOTE' ? $dictionary[$locale].GRP_DET_CONF_PROMOTE : $dictionary[$locale].GRP_DET_CONF_DEMOTE)) return;
-        try {
-            const res = await fetch(`/api/group/${groupId}/members`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: memberId, action })
-            });
-            if (res.ok) {
-                await loadGroup();
-            } else {
-                const d = await res.json();
-                alert(d.error || $dictionary[$locale].GRP_DET_ERR_ROLE);
-            }
-        } catch(e) {}
-    }
-
-    async function kickMember(memberId: number) {
-        if (!confirm($dictionary[$locale].GRP_DET_CONF_KICK)) return;
-        try {
-            const res = await fetch(`/api/group/${groupId}/members`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: memberId })
-            });
-            if (res.ok) {
-                await loadGroup();
-            } else {
-                const d = await res.json();
-                alert(d.error || $dictionary[$locale].GRP_DET_ERR_KICK);
-            }
-        } catch(e) {}
-    }
-
-    async function joinGroup() {
-        try {
-            const res = await fetch('/api/chat/group', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'JOIN', groupId: parseInt(groupId) })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert($dictionary[$locale].GRP_DET_MSG_JOIN);
-                await loadGroup();
-            } else {
-                alert(data.error);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async function disbandGroup() {
-        if (!confirm($dictionary[$locale].GRP_DET_CONF_DISBAND)) return;
-        try {
-            const res = await fetch(`/api/group/${groupId}`, { method: 'DELETE' });
-            if (res.ok) {
-                alert($dictionary[$locale].GRP_DET_MSG_DISBAND);
-                goto('/groups');
-            } else {
-                const d = await res.json();
-                alert(d.error);
-            }
-        } catch (e) {}
-    }
-
-    async function revokeInvite(requestId: number) {
-        if (!confirm($dictionary[$locale].GRP_DET_CONF_REVOKE)) return;
-        try {
-            const res = await fetch(`/api/group/${groupId}/requests`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId })
-            });
-            if (res.ok) {
-                await loadGroup();
-            }
-        } catch (e) {}
     }
 </script>
 
@@ -252,18 +88,18 @@
     <div class="crt-overlay"></div>
 
     <div class="main-card card-border">
-        {#if loading}
-            <div class="loading-state">{$dictionary[$locale].GRP_DET_SCANNING}</div>
-        {:else if error}
-            <div class="empty-state">{error}</div>
+        {#if errorMsg}
+            <div class="empty-state">{errorMsg}</div>
             <button class="return-btn" on:click={() => goto('/groups')}>{$dictionary[$locale].GRP_DET_RETURN}</button>
         {:else if group}
             <div class="header">
                 <div class="title-container">
                     {#if editNameMode}
-                        <input type="text" bind:value={newName} class="cc-input" style="width: 250px; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;" maxlength="50" />
-                        <button class="save-btn" on:click={saveGroupSettings}>{$dictionary[$locale].GRP_DET_SAVE}</button>
-                        <button class="mini-btn" on:click={() => editNameMode = false}>{$dictionary[$locale].GRP_DET_CANCEL}</button>
+                        <form method="POST" action="?/saveSettings" use:enhance style="display: inline-flex; align-items: center; gap: 10px;">
+                            <input type="text" name="name" bind:value={newName} class="cc-input" style="width: 250px; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;" maxlength="50" />
+                            <button class="save-btn">{$dictionary[$locale].GRP_DET_SAVE}</button>
+                            <button type="button" class="mini-btn" on:click={() => editNameMode = false}>{$dictionary[$locale].GRP_DET_CANCEL}</button>
+                        </form>
                     {:else}
                         <h2>{$dictionary[$locale].GRP_DET_HEADER} {group.name.toUpperCase()}</h2>
                         {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
@@ -273,12 +109,16 @@
                 </div>
                 <div class="header-actions">
                     {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
-                        <button class="disband-btn" on:click={disbandGroup}>{$dictionary[$locale].GRP_DET_DISBAND}</button>
+                        <form method="POST" action="?/disband" use:enhance style="display: inline-block;">
+                            <button class="disband-btn">{$dictionary[$locale].GRP_DET_DISBAND}</button>
+                        </form>
                     {/if}
                     {#if isMember}
                         <button class="enter-btn" on:click={() => goto(`/chat?group=${groupId}`)}>{$dictionary[$locale].GRP_DET_ENTER}</button>
                     {:else}
-                        <button class="join-btn" on:click={joinGroup}>{$dictionary[$locale].GRP_DET_REQUEST}</button>
+                        <form method="POST" action="?/joinGroup" use:enhance style="display: inline-block;">
+                            <button class="join-btn">{$dictionary[$locale].GRP_DET_REQUEST}</button>
+                        </form>
                     {/if}
                     <button class="return-btn" on:click={() => goto('/groups')}>{$dictionary[$locale].GRP_DET_RETURN}</button>
                 </div>
@@ -300,6 +140,9 @@
                             <div class="upload-overlay">{$dictionary[$locale].GRP_DET_UPLOAD}</div>
                         {/if}
                     </div>
+                    <form method="POST" action="?/uploadAvatar" use:enhance bind:this={avatarForm} style="display: none;">
+                        <input type="hidden" name="avatar" />
+                    </form>
                     <input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileChange} style="display: none;" />
                 </div>
 
@@ -308,9 +151,11 @@
                     <div class="stat-row">
                         <span class="label">{$dictionary[$locale].GRP_DET_MAX_CC}</span>
                         {#if editMaxCCMode}
-                            <input type="number" bind:value={newMaxCC} class="cc-input" />
-                            <button class="save-btn" on:click={saveGroupSettings}>{$dictionary[$locale].GRP_DET_SAVE}</button>
-                            <button class="mini-btn" on:click={() => editMaxCCMode = false}>{$dictionary[$locale].GRP_DET_CANCEL}</button>
+                            <form method="POST" action="?/saveSettings" use:enhance style="display: inline-flex; align-items: center; gap: 10px;">
+                                <input type="number" name="maxCC" bind:value={newMaxCC} class="cc-input" />
+                                <button class="save-btn">{$dictionary[$locale].GRP_DET_SAVE}</button>
+                                <button type="button" class="mini-btn" on:click={() => editMaxCCMode = false}>{$dictionary[$locale].GRP_DET_CANCEL}</button>
+                            </form>
                         {:else}
                             <span class="value">{group.maxCC}</span>
                             {#if currentUser.role === 'ADMIN' || currentUser.id === group.inspectorId}
@@ -337,8 +182,10 @@
                             {/if}
                         </div>
                         {#if editBioMode}
-                            <textarea bind:value={newBio} maxlength="500"></textarea>
-                            <button class="save-btn" on:click={saveGroupSettings}>{$dictionary[$locale].GRP_DET_SAVE_BIO}</button>
+                            <form method="POST" action="?/saveSettings" use:enhance style="display: flex; flex-direction: column; gap: 10px;">
+                                <textarea name="bio" bind:value={newBio} maxlength="500"></textarea>
+                                <button class="save-btn">{$dictionary[$locale].GRP_DET_SAVE_BIO}</button>
+                            </form>
                         {:else}
                             <div class="bio-text">
                                 {group.bio ? group.bio : $dictionary[$locale].GRP_DET_NO_BIO}
@@ -352,15 +199,15 @@
                                 {$dictionary[$locale].GRP_DET_INVITE_BTN}
                             </button>
                             {#if inviteDropdownOpen}
-                                <div class="invite-dropdown" transition:fade>
-                                    <select bind:value={selectedFriendToInvite} class="cc-input" style="width: 200px;">
+                                <form method="POST" action="?/inviteFriend" use:enhance class="invite-dropdown" transition:fade>
+                                    <select name="friendId" bind:value={selectedFriendToInvite} class="cc-input" style="width: 200px;">
                                         <option value={null}>{$dictionary[$locale].GRP_DET_SELECT_CITIZEN}</option>
                                         {#each friends as friend}
                                             <option value={friend.id}>{friend.username}</option>
                                         {/each}
                                     </select>
-                                    <button class="save-btn" on:click={inviteFriend}>{$dictionary[$locale].GRP_DET_CONFIRM_INVITE}</button>
-                                </div>
+                                    <button class="save-btn">{$dictionary[$locale].GRP_DET_CONFIRM_INVITE}</button>
+                                </form>
                             {/if}
                         </div>
                     {/if}
@@ -421,12 +268,23 @@
                                                 <div class="action-buttons">
                                                     {#if currentUser?.role === 'ADMIN' || currentUser?.id === group?.inspectorId}
                                                         {#if member.role === 'CITIZEN' || !member.role}
-                                                            <button class="action-btn promote" on:click={() => changeRole(member.id, 'PROMOTE')}>{$dictionary[$locale].GRP_DET_PROMOTE}</button>
+                                                            <form method="POST" action="?/changeRole" use:enhance style="display: inline-block;">
+                                                                <input type="hidden" name="targetUserId" value={member.id} />
+                                                                <input type="hidden" name="action" value="PROMOTE" />
+                                                                <button class="action-btn promote">{$dictionary[$locale].GRP_DET_PROMOTE}</button>
+                                                            </form>
                                                         {:else}
-                                                            <button class="action-btn demote" on:click={() => changeRole(member.id, 'DEMOTE')}>{$dictionary[$locale].GRP_DET_DEMOTE}</button>
+                                                            <form method="POST" action="?/changeRole" use:enhance style="display: inline-block;">
+                                                                <input type="hidden" name="targetUserId" value={member.id} />
+                                                                <input type="hidden" name="action" value="DEMOTE" />
+                                                                <button class="action-btn demote">{$dictionary[$locale].GRP_DET_DEMOTE}</button>
+                                                            </form>
                                                         {/if}
                                                     {/if}
-                                                    <button class="action-btn kick" on:click={() => kickMember(member.id)}>{$dictionary[$locale].GRP_DET_KICK}</button>
+                                                    <form method="POST" action="?/kickMember" use:enhance style="display: inline-block;">
+                                                        <input type="hidden" name="targetUserId" value={member.id} />
+                                                        <button class="action-btn kick" on:click={(e) => { if(!confirm($dictionary[$locale].GRP_DET_CONF_KICK)) e.preventDefault(); }}>{$dictionary[$locale].GRP_DET_KICK}</button>
+                                                    </form>
                                                 </div>
                                             {/if}
                                         </td>
@@ -450,7 +308,10 @@
                                     <td><span class="username">{req.username.toUpperCase()}</span></td>
                                     <td>{req.citizen_id || $dictionary[$locale].GRP_DET_UNKNOWN}</td>
                                     <td>
-                                        <button class="action-btn kick" on:click={() => revokeInvite(req.id)}>{$dictionary[$locale].GRP_DET_REVOKE}</button>
+                                        <form method="POST" action="?/revokeInvite" use:enhance style="display: inline-block;">
+                                            <input type="hidden" name="requestId" value={req.requestId} />
+                                            <button class="action-btn kick" on:click={(e) => { if(!confirm($dictionary[$locale].GRP_DET_CONF_REVOKE)) e.preventDefault(); }}>{$dictionary[$locale].GRP_DET_REVOKE}</button>
+                                        </form>
                                     </td>
                                 </tr>
                             {:else}

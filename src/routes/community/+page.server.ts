@@ -1,19 +1,15 @@
-import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { getSession } from '$lib/server/session';
+import { getAuthUser } from '$lib/server/auth';
+import type { PageServerLoad } from './$types';
 
-export async function GET({ url, cookies }) {
-    const session = getSession(cookies.get('session'));
-    if (!session) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const load: PageServerLoad = async ({ url, cookies }) => {
+    const user = getAuthUser(cookies.get('session'));
+    if (!user) return { users: [] };
 
-    const query = url.searchParams.get('query') || '';
+    const query = url.searchParams.get('q') || '';
+    const userId = user.id;
 
     try {
-        const userId = session.userId;
-
-
         const users = db.prepare(`
             SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy,
                    r.id as requestId, r.status as requestStatus, r.senderId as requestSenderId
@@ -34,9 +30,9 @@ export async function GET({ url, cookies }) {
             requestSenderId: number | null;
         }[];
 
-        return json({ users });
+        return { users, query };
     } catch (err) {
         console.error('Failed to query community directory:', err);
-        return json({ error: 'Failed to search citizen directory' }, { status: 500 });
+        return { users: [], query, error: 'Failed to search citizen directory' };
     }
-}
+};
