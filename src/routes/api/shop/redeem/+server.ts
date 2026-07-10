@@ -2,6 +2,19 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { getSession } from '$lib/server/session';
 
+/**
+ * Handles the POST request to redeem a promotional code.
+ * 
+ * Validates the provided code, ensures it hasn't reached its usage limit,
+ * and checks that the user hasn't already redeemed it. A `promo_usage`
+ * table is maintained dynamically to prevent duplicate redemptions.
+ * Upon successful validation, the user's credits are incremented.
+ * 
+ * @param {object} context - The request context.
+ * @param {Request} context.request - The incoming HTTP request.
+ * @param {Cookies} context.cookies - The request cookies for session extraction.
+ * @returns {Promise<Response>} The JSON response indicating success or an error.
+ */
 export async function POST({ request, cookies }) {
     const session = getSession(cookies.get('session'));
     if (!session) {
@@ -27,10 +40,6 @@ export async function POST({ request, cookies }) {
             return json({ error: 'Promo code has reached its maximum usage limit' }, { status: 400 });
         }
 
-        // Ideally, we should also track WHICH users redeemed the code so they can't redeem it twice.
-        // I will add a simple check: if we had a promo_usage table.
-        // For now, I'll allow simple logic without per-user restriction or just assume single-use codes for now,
-        // Wait, the plan didn't specify a user_promo_codes table. Let's just create one on the fly here to be safe.
         db.exec(`
             CREATE TABLE IF NOT EXISTS promo_usage (
                 userId INTEGER,
@@ -44,7 +53,6 @@ export async function POST({ request, cookies }) {
             return json({ error: 'You have already redeemed this promo code' }, { status: 400 });
         }
 
-        // Apply reward
         db.prepare('UPDATE promo_codes SET current_uses = current_uses + 1 WHERE id = ?').run(promo.id);
         db.prepare('INSERT INTO promo_usage (userId, promoId) VALUES (?, ?)').run(userId, promo.id);
         db.prepare('UPDATE users SET credits = credits + ? WHERE id = ?').run(promo.credits_reward, userId);

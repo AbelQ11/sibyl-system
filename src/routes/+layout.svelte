@@ -171,6 +171,12 @@
     {/if}
 </div>
 <style>
+    :global(::-webkit-scrollbar) { width: 8px; height: 8px; background: transparent; }
+    :global(::-webkit-scrollbar-track) { background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-color, rgba(0, 255, 204, 0.1)); }
+    :global(::-webkit-scrollbar-thumb) { background: var(--main-glow, rgba(0, 255, 204, 0.4)); border-radius: 4px; }
+    :global(::-webkit-scrollbar-thumb:hover) { background: var(--main-glow, rgba(0, 255, 204, 0.8)); }
+    :global(*) { scrollbar-width: thin; scrollbar-color: var(--main-glow, rgba(0, 255, 204, 0.4)) rgba(0, 0, 0, 0.5); }
+    
     :global(body) { margin: 0; background-color: var(--bg-color, #050505); color: var(--main-color, #00ffcc); overflow: hidden; }
     .app-wrapper { 
         display: flex; 
@@ -443,9 +449,9 @@
 
     /* BASE CURSOR */
     :global(html), :global(body) {
-        cursor: url('/cursors/cyber-arrow.svg') 2 2, auto;
+        cursor: url('/cursors/cyber-arrow.svg') 2 2, auto !important;
     }
     :global(a), :global(button), :global(input), :global(select), :global([role="button"]), :global(.clickable) {
-        cursor: url('/cursors/cyber-arrow.svg') 2 2, pointer;
+        cursor: url('/cursors/cyber-arrow.svg') 2 2, auto !important;
     }
 </style>

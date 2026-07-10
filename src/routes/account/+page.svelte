@@ -4,10 +4,12 @@
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
     import { locale, dictionary } from '$lib/i18n';
+    import { enhance } from '$app/forms';
 
     import TimeGraph from '$lib/components/TimeGraph.svelte';
 
-    export let data;
+    export let data: any;
+    export let form: any;
     let firstCC = 0;
     let lastCC = 0;
     let history: { cc: number, created_at: string }[] = [];
@@ -331,34 +333,12 @@
         }
     }
 
-    async function updateProfile() {
-        settingsMessage = $dictionary[$locale].ACC_MSG_UPDATING;
-        settingsSuccess = false;
-
-        try {
-            const res = await fetch('/api/auth/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    oldUsername: $currentUser, 
-                    newUsername: newUsername,
-                    newPassword: newPassword,
-                    privacy: privacySetting,
-                    bio: userBio
-                })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                currentUser.set(newUsername);
-                settingsMessage = $dictionary[$locale].ACC_MSG_UPDATE_SUCCESS;
-                settingsSuccess = true;
-                newPassword = '';
-            } else {
-                settingsMessage = `ERROR: ${data.message || 'UPDATE_DENIED'}`;
-            }
-        } catch (err) {
-            settingsMessage = $dictionary[$locale].ACC_MSG_UPDATE_FAILED;
+    $: if (form?.message) {
+        settingsMessage = $dictionary[$locale][form.message] || form.message;
+        settingsSuccess = form.success;
+        if (form.success && newUsername) {
+            currentUser.set(newUsername);
+            newPassword = '';
         }
     }
 
@@ -423,16 +403,22 @@
                 </div>
             </div>
 
-            <div class="form">
+            <form class="form" method="POST" action="?/updateProfile" use:enhance={() => {
+                settingsMessage = $dictionary[$locale].ACC_MSG_UPDATING;
+                settingsSuccess = false;
+                return async ({ update }) => {
+                    await update({ reset: false });
+                };
+            }}>
                 <label for="username">{$dictionary[$locale].ACC_LABEL_IDENTIFIER}</label>
-                <input id="username" type="text" bind:value={newUsername} autocomplete="off" spellcheck="false" maxlength="15" />
+                <input id="username" name="username" type="text" bind:value={newUsername} autocomplete="off" spellcheck="false" maxlength="15" />
 
                 <label for="password">{$dictionary[$locale].ACC_LABEL_PASSWORD}</label>
-                <input id="password" type="password" bind:value={newPassword} placeholder="••••••••" />
+                <input id="password" name="password" type="password" bind:value={newPassword} placeholder="••••••••" />
                 <p class="field-hint">{$dictionary[$locale].REG_PASSWORD_RULES}</p>
 
                 <label for="privacy">{$dictionary[$locale].ACC_LABEL_PRIVACY}</label>
-                <select id="privacy" bind:value={privacySetting} class="privacy-select">
+                <select id="privacy" name="privacy" bind:value={privacySetting} class="privacy-select">
                     <option value="PRIVATE">{$dictionary[$locale].ACC_PRIVACY_PRIVATE}</option>
                     <option value="FRIENDS">{$dictionary[$locale].ACC_PRIVACY_FRIENDS}</option>
                     <option value="GROUP ONLY">{$dictionary[$locale].ACC_PRIVACY_GROUPS}</option>
@@ -442,8 +428,8 @@
 
                 <div class="status-msg" class:success={settingsSuccess}>{settingsMessage}</div>
 
-                <button class="action-btn" on:click={updateProfile}>{$dictionary[$locale].ACC_BTN_COMMIT}</button>
-            </div>
+                <button class="action-btn" type="submit">{$dictionary[$locale].ACC_BTN_COMMIT}</button>
+            </form>
 
             <button class="camera-init-btn" on:click={() => {
                 appMode.set('INITIAL');
@@ -475,11 +461,23 @@
                 </div>
             </div>
 
-            <div class="form" style="margin-bottom: 25px;">
+            <form class="form" style="margin-bottom: 25px;" method="POST" action="?/updateProfile" use:enhance={() => {
+                settingsMessage = $dictionary[$locale].ACC_MSG_UPDATING;
+                settingsSuccess = false;
+                return async ({ update }) => {
+                    await update({ reset: false });
+                };
+            }}>
+                <!-- We must include the other fields as hidden so the schema passes -->
+                <input type="hidden" name="username" value={newUsername} />
+                <input type="hidden" name="privacy" value={privacySetting} />
+                
                 <label for="bio">{$dictionary[$locale].ACC_LABEL_BIO}</label>
-                <input id="bio" type="text" bind:value={userBio} autocomplete="off" spellcheck="false" maxlength="50" placeholder={$dictionary[$locale].ACC_PLACEHOLDER_BIO} />
-                <button class="action-btn" on:click={updateProfile} style="margin-top: 10px;">{$dictionary[$locale].ACC_BTN_UPDATE_BIO}</button>
-            </div>
+                <input id="bio" name="bio" type="text" bind:value={userBio} autocomplete="off" spellcheck="false" maxlength="50" placeholder={$dictionary[$locale].ACC_PLACEHOLDER_BIO} />
+                
+                <div class="status-msg" class:success={settingsSuccess}>{settingsMessage}</div>
+                <button class="action-btn" type="submit">{$dictionary[$locale].ACC_BTN_UPDATE_BIO}</button>
+            </form>
 
             <div class="discord-sync-box" style="margin-top: auto;">
                 <div class="discord-title">{$dictionary[$locale].ACC_DISCORD_SYNC_TITLE}</div>

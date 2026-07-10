@@ -25,7 +25,6 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
             `).get(session.userId) as any;
 
             if (user) {
-                // Self-heal any missing/invalid citizen_id
                 let citizenId = user.citizen_id;
                 if (!citizenId || !/^SIB-\d{8}$/.test(citizenId)) {
                     citizenId = generateCitizenId();

@@ -3,105 +3,33 @@
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
     import { locale, dictionary } from '$lib/i18n';
+    import { enhance } from '$app/forms';
 
-    let groups: any[] = [];
-    let loading = true;
+    export let data: any;
+    export let form: any;
+
+    $: groups = data.groups || [];
+    $: pendingRequests = data.pendingRequests || [];
+
     let createMode = false;
-    let pendingRequests: any[] = [];
     
     let newGroupName = '';
     let newGroupMaxCC = 100;
     
     let searchQuery = '';
 
-    $: isAlreadyInGroup = groups.some(g => g.isMember);
-    $: filteredGroups = groups.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    $: isAlreadyInGroup = groups.some((g: any) => g.isMember);
+    $: filteredGroups = groups.filter((g: any) => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    onMount(async () => {
-        /**
-         * We'll just mock fetching all groups or doing a simple API call if we have one.
-         * I need to create a GET /api/chat/group to fetch groups.
-         */
-        await fetchGroups();
-    });
-
-    async function fetchGroups() {
-        loading = true;
-        try {
-            const res = await fetch('/api/chat/group');
-            if (res.ok) {
-                const data = await res.json();
-                groups = data.groups || [];
-            }
-            
-            const reqRes = await fetch('/api/group/requests');
-            if (reqRes.ok) {
-                const reqData = await reqRes.json();
-                pendingRequests = reqData.requests || [];
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            loading = false;
+    $: if (form?.message) {
+        alert(form.message);
+        if (form.success) {
+            createMode = false;
+            newGroupName = '';
         }
     }
-
-    async function createGroup() {
-        if (!newGroupName.trim()) return;
-        try {
-            const res = await fetch('/api/chat/group', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'CREATE', name: newGroupName, maxCC: newGroupMaxCC })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert(`Group [${newGroupName}] created successfully!`);
-                createMode = false;
-                newGroupName = '';
-                await fetchGroups();
-            } else {
-                alert(data.error);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async function joinGroup(groupId: number) {
-        try {
-            const res = await fetch('/api/chat/group', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'JOIN', groupId })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert($dictionary[$locale].GRP_MSG_SUCCESS);
-                await fetchGroups();
-            } else {
-                alert(data.error);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async function handleRequest(requestId: number, action: 'ACCEPT' | 'DECLINE') {
-        try {
-            const res = await fetch('/api/group/requests', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requestId, action })
-            });
-            const d = await res.json();
-            if (res.ok) {
-                alert($dictionary[$locale].GRP_MSG_SUCCESS);
-                await fetchGroups();
-            } else {
-                alert(d.error);
-            }
-        } catch (e) {}
+    $: if (form?.error) {
+        alert(form.error);
     }
 </script>
 
@@ -120,19 +48,19 @@
     </div>
 
     {#if createMode && !isAlreadyInGroup}
-        <div class="create-panel" transition:fade>
+        <form class="create-panel" transition:fade method="POST" action="?/create" use:enhance>
             <h3>{$dictionary[$locale].GRP_CREATE_HEADER}</h3>
             <div class="form-group">
                 <label>{$dictionary[$locale].GRP_LABEL_NAME}</label>
-                <input type="text" bind:value={newGroupName} placeholder={$dictionary[$locale].GRP_PLACEHOLDER_NAME} maxlength="50" />
+                <input type="text" name="name" bind:value={newGroupName} placeholder={$dictionary[$locale].GRP_PLACEHOLDER_NAME} maxlength="50" />
             </div>
             <div class="form-group">
                 <label>{$dictionary[$locale].GRP_LABEL_MAX_CC}</label>
-                <input type="number" bind:value={newGroupMaxCC} min="0" max="999" />
+                <input type="number" name="maxCC" bind:value={newGroupMaxCC} min="0" max="999" />
                 <span class="hint">{$dictionary[$locale].GRP_HINT_MAX_CC}</span>
             </div>
-            <button class="submit-btn" on:click={createGroup}>{$dictionary[$locale].GRP_BTN_INIT}</button>
-        </div>
+            <button class="submit-btn" type="submit">{$dictionary[$locale].GRP_BTN_INIT}</button>
+        </form>
     {/if}
 
     {#if pendingRequests.length > 0}
@@ -143,10 +71,11 @@
                     <span class="req-info">
                         <strong>{req.senderName}</strong> {$dictionary[$locale].GRP_INVITED_YOU} <strong>{req.groupName}</strong> ({$dictionary[$locale].GRP_MAX_CC} {req.maxCC})
                     </span>
-                    <div class="req-actions">
-                        <button class="accept-btn" on:click={() => handleRequest(req.id, 'ACCEPT')}>{$dictionary[$locale].GRP_BTN_ACCEPT}</button>
-                        <button class="decline-btn" on:click={() => handleRequest(req.id, 'DECLINE')}>{$dictionary[$locale].GRP_BTN_DECLINE}</button>
-                    </div>
+                    <form class="req-actions" method="POST" action="?/handleRequest" use:enhance>
+                        <input type="hidden" name="requestId" value={req.id} />
+                        <button class="accept-btn" name="action" value="ACCEPT" type="submit">{$dictionary[$locale].GRP_BTN_ACCEPT}</button>
+                        <button class="decline-btn" name="action" value="DECLINE" type="submit">{$dictionary[$locale].GRP_BTN_DECLINE}</button>
+                    </form>
                 </div>
             {/each}
         </div>
@@ -157,9 +86,7 @@
     </div>
 
     <div class="group-list">
-        {#if loading}
-            <div class="loading">{$dictionary[$locale].GRP_LOADING}</div>
-        {:else if filteredGroups.length === 0}
+        {#if filteredGroups.length === 0}
             <div class="empty">{$dictionary[$locale].GRP_EMPTY}</div>
         {:else}
             {#each filteredGroups as group}
@@ -175,9 +102,12 @@
                                 {$dictionary[$locale].GRP_BTN_ENTER}
                             </button>
                         {:else}
-                            <button class="join-btn" on:click={() => joinGroup(group.id)}>
-                                {$dictionary[$locale].GRP_BTN_REQUEST}
-                            </button>
+                            <form method="POST" action="?/join" use:enhance style="display:inline;">
+                                <input type="hidden" name="groupId" value={group.id} />
+                                <button class="join-btn" type="submit">
+                                    {$dictionary[$locale].GRP_BTN_REQUEST}
+                                </button>
+                            </form>
                         {/if}
                         <button class="details-btn" on:click={() => goto(`/groups/${group.id}`)}>
                             {$dictionary[$locale].GRP_BTN_DETAILS}

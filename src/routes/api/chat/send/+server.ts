@@ -204,7 +204,13 @@ async function moderateMessage(messageId: number, text: string, userId: number) 
     
     Message: "${text}"`;
 
-    const aiResponse = await queryAI(prompt, 'moderation');
+    let aiResponse;
+    try {
+        aiResponse = await queryAI(prompt, 'moderation');
+    } catch (e) {
+        console.warn("AI Engine unavailable for moderation. Allowing message without penalty.");
+        return;
+    }
     
     let jsonStr = aiResponse;
     if (jsonStr.includes('\`\`\`')) {

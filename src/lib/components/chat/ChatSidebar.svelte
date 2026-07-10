@@ -67,6 +67,8 @@
         padding: 15px;
         background: var(--border-color, rgba(0, 255, 204, 0.02));
         overflow-y: auto;
+        overflow-x: hidden;
+        box-sizing: border-box;
     }
     .sidebar-title { margin: 0 0 20px 0; font-size: 1.2rem; letter-spacing: 1px; }
     .sidebar-section { margin-bottom: 20px; }
@@ -75,6 +77,7 @@
     .channel-btn {
         display: block;
         width: 100%;
+        box-sizing: border-box;
         text-align: left;
         background: transparent;
         border: 1px solid transparent;

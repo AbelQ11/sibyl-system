@@ -84,7 +84,7 @@ export const DELETE: RequestHandler = async ({ params, cookies }) => {
             /** Delete members */
             db.prepare('DELETE FROM chat_group_members WHERE groupId = ?').run(groupId);
             /** Delete messages */
-            db.prepare('DELETE FROM chat_messages WHERE targetGroupId = ?').run(groupId);
+            db.prepare('DELETE FROM chat_messages WHERE groupId = ?').run(groupId);
             /** Delete the group */
             db.prepare('DELETE FROM chat_groups WHERE id = ?').run(groupId);
         });

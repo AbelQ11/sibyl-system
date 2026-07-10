@@ -5,9 +5,10 @@
     import { page } from '$app/stores';
     import { fade } from 'svelte/transition';
     import { browser } from '$app/environment';
-    import { globalNotificationsEnabled, latestSSEEvent } from '$lib/stores';
-    import VoicePlayer from '$lib/components/VoicePlayer.svelte';
+    import { latestSSEEvent, globalNotificationsEnabled } from '$lib/stores';
     import ChatSidebar from '$lib/components/chat/ChatSidebar.svelte';
+    import MessageBubble from '$lib/components/chat/MessageBubble.svelte';
+    import ChatInput from '$lib/components/chat/ChatInput.svelte';
     import type { UserProfile, ChatMessage, ChatGroup } from '$lib/types/domain';
 
     export let data: { user: UserProfile };
@@ -30,47 +31,8 @@
     let editingMessageId: number | null = null;
     let replyingToMessage: ChatMessage | null = null;
     let attachmentBase64: string | null = null;
-    let attachmentInput: HTMLInputElement;
     let moderationPopupVisible = false;
     let moderationPenaltyStr = '';
-
-    let isRecording = false;
-    let mediaRecorder: MediaRecorder | null = null;
-    let audioChunks: Blob[] = [];
-
-    async function toggleRecording() {
-        if (isRecording) {
-            mediaRecorder?.stop();
-            isRecording = false;
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            
-            mediaRecorder.ondataavailable = e => {
-                if (e.data.size > 0) audioChunks.push(e.data);
-            };
-            
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                stream.getTracks().forEach(track => track.stop());
-                
-                const reader = new FileReader();
-                reader.onload = (evt) => {
-                    attachmentBase64 = evt.target?.result as string;
-                };
-                reader.readAsDataURL(audioBlob);
-            };
-            
-            mediaRecorder.start();
-            isRecording = true;
-        } catch(e) {
-            console.error("Microphone error", e);
-            alert("Failed to access microphone. Please check permissions.");
-        }
-    }
 
     function showModerationPopup(penaltyText: string) {
         moderationPenaltyStr = penaltyText;
@@ -549,173 +511,29 @@
 
         <div class="chat-history">
             {#each visibleMessages as msg (msg.id)}
-                <div class="message-row {msg.senderRole === 'ADMIN' ? 'admin-msg' : ''}" transition:fade>
-                    <div class="avatar-wrapper {msg.senderAvatarBorder || ''}">
-                        {#if msg.senderAvatar}
-                            <img src={msg.senderAvatar} alt="avatar" class="chat-avatar" class:clickable-avatar={msg.senderRole !== 'ADMIN'} on:click={() => { if(msg.senderRole !== 'ADMIN') goto('/citizen/' + msg.senderName) }} />
-                        {:else}
-                            <div class="chat-avatar blank" class:clickable-avatar={msg.senderRole !== 'ADMIN'} on:click={() => { if(msg.senderRole !== 'ADMIN') goto('/citizen/' + msg.senderName) }}></div>
-                        {/if}
-                    </div>
-
-                    <div class="message-content">
-                        <div class="message-meta">
-                            {#if msg.senderGroupName && msg.senderGroupId}
-                                <span class="group-tag clickable-group" on:click={() => goto(`/groups/${msg.senderGroupId}`)} title="View Division Details">[{msg.senderGroupName}]</span>
-                            {:else if msg.senderGroupName}
-                                <span class="group-tag">[{msg.senderGroupName}]</span>
-                            {/if}
-                            <span class="sender-name {getHueClass(msg.senderCC)} {msg.senderNameEffect || ''}" class:blurred={msg.senderRole === 'ADMIN'} data-text={msg.senderName}>
-                                {msg.senderName}
-                            </span>
-                            {#if msg.senderRole === 'ADMIN'}
-                                <span class="admin-badge">{$dictionary[$locale].CHAT_ADMIN_BADGE}</span>
-                            {/if}
-                            <span class="msg-timestamp">
-                                {new Date(msg.created_at.replace(' ', 'T') + (msg.created_at.includes('Z') ? '' : 'Z')).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                {#if msg.is_edited}
-                                    <span class="edited-tag">{$dictionary[$locale].CHAT_EDITED}</span>
-                                {/if}
-                            </span>
-                        </div>
-                        
-                        {#if msg.replyToMessage}
-                            <div class="reply-block {getHueClass(msg.replyToMessage.senderAvgCC)}">
-                                <span class="reply-sender">@{msg.replyToMessage.senderName}</span>
-                                {msg.replyToMessage.text.substring(0, 50)}{msg.replyToMessage.text.length > 50 ? '...' : ''}
-                            </div>
-                        {/if}
-
-                        {#if msg.isReadOnce && !msg.read}
-                            <button class="decrypt-btn" on:click={() => decryptMessage(msg.id)}>
-                                <span class="icon-eye">👁</span> {$dictionary[$locale].CHAT_DECRYPT}
-                            </button>
-                        {:else}
-                            <div class="message-text {getHueClass(msg.senderCC)}">
-                                {msg.text}
-                            </div>
-                            {#if msg.attachment}
-                                {#if msg.attachment.startsWith('data:audio')}
-                                    <VoicePlayer src={msg.attachment} />
-                                {:else}
-                                    <img src={msg.attachment} alt="attachment" class="msg-attachment-img" />
-                                {/if}
-                            {/if}
-                            <div class="reactions">
-                                {#each Object.entries(groupReactions(msg.reactions)) as [emoji, users]}
-                                    <button class="reaction-pill {users.includes(currentUser?.id) ? 'active' : ''}" on:click={() => toggleReaction(msg.id, emoji)}>
-                                        {emoji} {users.length}
-                                    </button>
-                                {/each}
-                                <div class="add-reaction">
-                                    <button class="mini-btn react-btn" title="Add Reaction">[+]</button>
-                                    <div class="emoji-picker">
-                                        {#each ['👍', '❤️', '💀', '👁️'] as emj}
-                                            <button on:click={() => toggleReaction(msg.id, emj)}>{emj}</button>
-                                        {/each}
-                                        <input type="text" class="custom-emoji-input" maxlength="2" placeholder="..." on:keydown={(e) => {
-                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                toggleReaction(msg.id, e.currentTarget.value.trim());
-                                                e.currentTarget.value = '';
-                                            }
-                                        }} title="Type a custom emoji and press Enter" />
-                                    </div>
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-
-                        <div class="message-actions">
-                            {#if (!msg.isReadOnce || msg.read)}
-                                <button class="mini-btn reply-btn" title="Reply" on:click={() => replyingToMessage = msg}>{$dictionary[$locale].CHAT_BTN_REPLY}</button>
-                            {/if}
-                            {#if msg.senderId === currentUser?.id && (!msg.isReadOnce || msg.read)}
-                                <button class="mini-btn edit-btn" title="Edit Message" on:click={() => startEdit(msg)}>{$dictionary[$locale].CHAT_BTN_EDIT}</button>
-                            {/if}
-                            {#if msg.senderId === currentUser?.id || currentUser?.role === 'ADMIN'}
-                                <button class="mini-btn delete-btn" title="Delete Message" on:click={() => deleteMessage(msg.id)}>{$dictionary[$locale].CHAT_BTN_DELETE}</button>
-                            {/if}
-                        </div>
-                </div>
+                <MessageBubble 
+                    {msg} 
+                    {currentUser}
+                    on:decrypt={(e) => decryptMessage(e.detail)}
+                    on:react={(e) => toggleReaction(e.detail.id, e.detail.emoji)}
+                    on:reply={(e) => replyingToMessage = e.detail}
+                    on:edit={(e) => startEdit(e.detail)}
+                    on:delete={(e) => deleteMessage(e.detail)}
+                />
             {/each}
-        </div>
+    </div>
 
-        <div class="chat-input-area">
-            {#if replyingToMessage}
-                <div class="reply-banner {getHueClass(replyingToMessage.senderCC)}">
-                    {$dictionary[$locale].CHAT_REPLYING_TO} [{replyingToMessage.senderName}]: "{replyingToMessage.text.substring(0, 30)}..." 
-                    <button class="cancel-btn" on:click={() => replyingToMessage = null}>{$dictionary[$locale].CHAT_CANCEL}</button>
-                </div>
-            {/if}
-            {#if attachmentBase64}
-                <div class="attachment-preview">
-                    {#if attachmentBase64.startsWith('data:audio')}
-                        <VoicePlayer src={attachmentBase64} />
-                    {:else}
-                        <img src={attachmentBase64} alt="attachment preview" />
-                    {/if}
-                    <button class="cancel-btn" on:click={() => { attachmentBase64 = null; if (attachmentInput) attachmentInput.value = ''; }}>{$dictionary[$locale].CHAT_CANCEL}</button>
-                </div>
-            {/if}
-            {#if editingMessageId}
-                <div class="editing-banner">
-                    {$dictionary[$locale].CHAT_EDITING} <button class="cancel-btn" on:click={cancelEdit}>{$dictionary[$locale].CHAT_CANCEL}</button>
-                </div>
-            {/if}
-
-            <div class="input-controls">
-                <button 
-                    class="read-once-toggle {isReadOnce ? 'active' : ''}" 
-                    on:click={() => isReadOnce = !isReadOnce}
-                    title="Toggle Read-Once Self Destruct"
-                >
-                    {#if isReadOnce}
-                        <span class="icon-eye-closed">⚒</span>
-                    {:else}
-                        <span class="icon-eye-open">👁</span>
-                    {/if}
-                </button>
-                
-                <div class="input-row">
-                    <input type="file" accept="image/*" bind:this={attachmentInput} style="display:none;" on:change={(e) => {
-                        const target = e.target as HTMLInputElement;
-                        const file = target.files?.[0];
-                        if (file) {
-                            if (file.size > 4 * 1024 * 1024) {
-                                alert($dictionary[$locale].CHAT_ERR_IMG_SIZE);
-                                attachmentInput.value = '';
-                                return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = (evt) => attachmentBase64 = evt.target?.result as string;
-                            reader.readAsDataURL(file);
-                        }
-                    }} />
-                    <button class="action-btn attach-btn" on:click={() => attachmentInput.click()} title="Attach Image (Max 4MB)">
-                        {$dictionary[$locale].CHAT_ATTACH_IMG}
-                    </button>
-                    {#if currentTab === 'GROUP' || currentTab === 'PRIVATE'}
-                        <button class="action-btn attach-btn {isRecording ? 'recording' : ''}" on:click={toggleRecording} title="Record Voice">
-                            {isRecording ? '[ STOP ]' : '[ MIC ]'}
-                        </button>
-                    {/if}
-                    <input 
-                        type="text" 
-                        bind:value={inputText} 
-                        maxlength="250"
-                        placeholder={$dictionary[$locale].CHAT_INPUT_PLACEHOLDER}
-                        on:keydown={(e) => e.key === 'Enter' && sendMessage()}
-                    />
-                    <button on:click={sendMessage} disabled={sending || (!inputText.trim() && !(attachmentBase64 && attachmentBase64.startsWith('data:audio')))}>
-                        {editingMessageId ? $dictionary[$locale].CHAT_BTN_UPDATE : $dictionary[$locale].CHAT_BTN_TRANSMIT}
-                    </button>
-                </div>
-            </div>
-            
-            <div class="char-count" class:limit={inputText.length >= 250}>
-                {inputText.length} / 250
-            </div>
-        </div>
+        <ChatInput
+            bind:replyingToMessage
+            bind:attachmentBase64
+            bind:editingMessageId
+            bind:isReadOnce
+            bind:inputText
+            {sending}
+            {currentTab}
+            on:send={sendMessage}
+            on:cancelEdit={cancelEdit}
+        />
     </div>
 </div>
 
