@@ -1,23 +1,20 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
+import { insertCC } from '$lib/server/repositories/statsRepository';
 
-export async function POST({ request }) {
+export async function POST({ request, cookies }) {
+    const user = getAuthUser(cookies.get('session'));
+    if (!user) {
+        return json({ error: 'Unauthorized: Active session required.' }, { status: 401 });
+    }
+
     try {
-        const { cc, userId } = await request.json();
-        
-        if (!userId) {
-            return json({ error: 'Missing citizen identifier context' }, { status: 400 });
-        }
+        const { cc } = await request.json();
 
-        const userRow = db.prepare('SELECT id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number } | undefined;
-        
-        if (!userRow) {
-            return json({ error: 'Unauthorized: Citizen identification required' }, { status: 401 });
-        }
+        insertCC(user.id, cc, 'biometric');
 
-        db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'biometric')").run(userRow.id, cc);
 
-        /** Discord webhook integration removed. */
 
         return json({ success: true });
     } catch (err: any) {

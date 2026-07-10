@@ -1,13 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getSession } from '$lib/server/session';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
+    const session = getSession(cookies.get('session'));
+    if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const userId = parseInt(sessionId);
+        const userId = session.userId;
         
         const requests = db.prepare(`
             SELECT r.id, r.groupId, r.senderId, r.created_at,
@@ -26,12 +27,12 @@ export const GET: RequestHandler = async ({ cookies }) => {
 };
 
 export const PUT: RequestHandler = async ({ request, cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
+    const session = getSession(cookies.get('session'));
+    if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const userId = parseInt(sessionId);
-        /** action: 'ACCEPT' or 'DECLINE' */
+        const userId = session.userId;
+
         const { requestId, action } = await request.json();
 
         if (!requestId || !['ACCEPT', 'DECLINE'].includes(action)) {
@@ -48,14 +49,14 @@ export const PUT: RequestHandler = async ({ request, cookies }) => {
             return json({ success: true, message: 'Request declined' });
         }
 
-        /** Check if user is already in a group */
+
         const existingMembership = db.prepare('SELECT 1 FROM chat_group_members WHERE userId = ?').get(userId);
         if (existingMembership) {
-            /** Can't accept, but let's decline the request automatically or leave it */
+
             return json({ error: 'You are already a member of a division. Leave it first before joining another.' }, { status: 400 });
         }
 
-        /** Check CC requirement */
+
         const stats = db.prepare('SELECT cc FROM userStats WHERE userId = ? ORDER BY created_at DESC LIMIT 1').get(userId) as any;
         const currentCC = stats ? stats.cc : 0;
 
@@ -64,7 +65,7 @@ export const PUT: RequestHandler = async ({ request, cookies }) => {
             return json({ error: `Your Crime Coefficient (${Math.round(currentCC)}) exceeds the group limit (${group.maxCC})` }, { status: 403 });
         }
 
-        /** Process ACCEPT */
+
         const transaction = db.transaction(() => {
             db.prepare('UPDATE group_requests SET status = ? WHERE id = ?').run('ACCEPTED', requestId);
             db.prepare('INSERT INTO chat_group_members (groupId, userId, role) VALUES (?, ?, ?)')

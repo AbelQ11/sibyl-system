@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         const { groupId, friendId } = await request.json();
         if (!groupId || !friendId) return json({ error: 'Missing groupId or friendId' }, { status: 400 });
 
-        /** Verify the current user is in the group or ADMIN */
+
         if (user.role !== 'ADMIN') {
             const isMember = db.prepare('SELECT 1 FROM chat_group_members WHERE groupId = ? AND userId = ?').get(groupId, user.id);
             if (!isMember) {
@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             }
         }
 
-        /** Verify the friend is a valid accepted friend */
+
         const isFriend = db.prepare(`
             SELECT 1 FROM friend_requests 
             WHERE status = 'ACCEPTED' AND 
@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         const group = db.prepare('SELECT * FROM chat_groups WHERE id = ?').get(groupId) as any;
         if (!group) return json({ error: 'Division not found' }, { status: 404 });
 
-        /** Check friend's CC */
+
         const stats = db.prepare('SELECT cc FROM userStats WHERE userId = ? ORDER BY created_at DESC LIMIT 1').get(friendId) as any;
         const friendCC = stats ? stats.cc : 0;
 
@@ -44,24 +44,24 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             return json({ error: `Cannot invite: Citizen's CC (${Math.round(friendCC)}) exceeds group limit (${group.maxCC}).` }, { status: 400 });
         }
 
-        /** Check if friend is already in a group */
+
         const friendExistingMembership = db.prepare(`SELECT 1 FROM chat_group_members WHERE userId = ?`).get(friendId);
         if (friendExistingMembership) {
             return json({ error: 'Citizen is already a member of a division. They can only belong to one.' }, { status: 400 });
         }
 
-        /** Check for existing pending request */
+
         const existingRequest = db.prepare(`SELECT 1 FROM group_requests WHERE groupId = ? AND userId = ? AND status = 'PENDING'`).get(groupId, friendId);
         if (existingRequest) {
             return json({ error: 'Citizen already has a pending invite for this division' }, { status: 400 });
         }
 
-        /** Insert into group_requests */
+
         try {
             db.prepare('INSERT INTO group_requests (groupId, userId, senderId, status) VALUES (?, ?, ?, ?)')
               .run(groupId, friendId, user.id, 'PENDING');
             
-            /** Broadcast notification */
+
             chatStore.broadcast({
                 type: 'notification',
                 receiverId: friendId,

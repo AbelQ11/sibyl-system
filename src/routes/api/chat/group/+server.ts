@@ -1,13 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { env } from '$env/dynamic/private';
+import { getAuthUser } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare(`SELECT id, role FROM users WHERE id = ?`).get(sessionId) as any;
+    const user = getAuthUser(cookies.get('session')) as any;
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
@@ -25,17 +23,14 @@ export const GET: RequestHandler = async ({ cookies }) => {
 };
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare(`SELECT id, role FROM users WHERE id = ?`).get(sessionId) as any;
+    const user = getAuthUser(cookies.get('session')) as any;
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const body = await request.json();
         const { action } = body;
 
-        /** Get user's current CC */
+
         const stats = db.prepare(`SELECT cc FROM userStats WHERE userId = ? ORDER BY created_at DESC LIMIT 1`).get(user.id) as any;
         const currentCC = stats ? stats.cc : 0;
 
@@ -44,13 +39,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             if (!name) return json({ error: 'Group name required' }, { status: 400 });
             if (name.length > 50) return json({ error: 'Group name must be 50 characters or less' }, { status: 400 });
 
-            /** Enforce single group rule */
+
             const existingMembership = db.prepare(`SELECT 1 FROM chat_group_members WHERE userId = ?`).get(user.id);
             if (existingMembership) {
                 return json({ error: 'You are already a member of a division. You can only belong to one.' }, { status: 403 });
             }
 
-            /** Admin bypasses CC checks, but for regular users creating groups: */
+
             if (user.role !== 'ADMIN' && currentCC > maxCC) {
                 return json({ error: 'Your CC exceeds the max CC you are trying to set' }, { status: 403 });
             }
@@ -59,10 +54,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             const info = insertGroup.run(name, maxCC || 100, user.id);
             const groupId = info.lastInsertRowid;
 
-            /** Add creator as CITIZEN (they are implicitly Inspector via the inspectorId field) */
+
             db.prepare(`INSERT INTO chat_group_members (groupId, userId, role) VALUES (?, ?, 'CITIZEN')`).run(groupId, user.id);
 
-            /** Webhook to Discord Bot removed. */
+
 
             return json({ success: true, groupId, name, maxCC });
         } 
@@ -76,7 +71,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                 return json({ error: `Access Denied: Your Crime Coefficient (${Math.round(currentCC)}) exceeds the group threshold (${group.maxCC}).` }, { status: 403 });
             }
 
-            /** Enforce single group rule */
+
             const existingMembership = db.prepare(`SELECT 1 FROM chat_group_members WHERE userId = ?`).get(user.id);
             if (existingMembership) {
                 return json({ error: 'You are already a member of a division. You can only belong to one.' }, { status: 403 });

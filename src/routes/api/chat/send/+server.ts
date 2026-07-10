@@ -1,25 +1,43 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { chatStore } from '$lib/server/chatStore';
+import { getSession } from '$lib/server/session';
 import { queryAI } from '$lib/server/aiFallbackEngine';
 import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
+import { getUserWithCosmetics } from '$lib/server/repositories/userRepository';
+import { getLatestCC } from '$lib/server/repositories/statsRepository';
+import { insertMessage } from '$lib/server/repositories/messageRepository';
+import { z } from 'zod';
 import type { RequestHandler } from './$types';
 
+const SendMessageSchema = z.object({
+    text: z.string().min(1, 'Message text is required').max(250, 'Message exceeds 250 characters limit'),
+    targetType: z.enum(['PUBLIC', 'GROUP', 'PRIVATE']),
+    targetId: z.number().nullable().optional(),
+    isReadOnce: z.boolean().optional().default(false),
+    replyToId: z.number().nullable().optional(),
+    attachment: z.string().nullable().optional()
+});
+
+/**
+ * Processes and transmits a new chat message.
+ * Validates the input payload, enforces slowmode and group membership rules,
+ * interacts with the AI fallback engine if necessary, and broadcasts the event
+ * via the SSE chat store.
+ *
+ * @param request - The HTTP request containing the SendMessageSchema payload.
+ * @param cookies - The request cookies used for session authentication.
+ * @returns JSON response confirming success or providing error details.
+ */
 export const POST: RequestHandler = async ({ request, cookies }) => {
-    const sessionId = cookies.get('session');
+    const session = getSession(cookies.get('session'));
     
-    if (!sessionId) {
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = db.prepare(`
-        SELECT u.id, u.username, u.avatar, u.role,
-            (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'name_effect' AND uc.equipped = 1 LIMIT 1) as nameEffect,
-            (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'avatar_border' AND uc.equipped = 1 LIMIT 1) as avatarBorder
-        FROM users u
-        WHERE u.id = ?
-    `).get(sessionId) as any;
+    const user = getUserWithCosmetics(session.userId);
 
     if (!user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
@@ -27,15 +45,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     try {
         const body = await request.json();
-        const { text, targetType, targetId, isReadOnce, replyToId, attachment } = body;
-
-        if (!text || typeof text !== 'string') {
-            return json({ error: 'Message text is required' }, { status: 400 });
+        const parsed = SendMessageSchema.safeParse(body);
+        if (!parsed.success) {
+            return json({ error: parsed.error.errors[0].message }, { status: 400 });
         }
-
-        if (text.length > 250) {
-            return json({ error: 'Message exceeds 250 characters limit' }, { status: 400 });
-        }
+        
+        const { text, targetType, targetId, isReadOnce, replyToId, attachment } = parsed.data;
 
         if (replyToId) {
             const parent = db.prepare('SELECT isReadOnce FROM chat_messages WHERE id = ?').get(replyToId) as { isReadOnce: number } | undefined;
@@ -43,14 +58,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             if (parent.isReadOnce) return json({ error: 'Cannot reply to a classified Read-Once message' }, { status: 403 });
         }
 
-        /** Get sender's last CC for hue coloring */
-        const stats = db.prepare(`
-            SELECT cc FROM userStats 
-            WHERE userId = ? 
-            ORDER BY created_at DESC LIMIT 1
-        `).get(user.id) as { cc: number } | undefined;
-        
-        const cc = stats ? stats.cc : 0;
+
+        const cc = getLatestCC(user.id);
 
         let receiverId = null;
         let groupId = null;
@@ -59,7 +68,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             receiverId = targetId;
         } else if (targetType === 'GROUP') {
             groupId = targetId;
-            /** Check if user is in group or is admin */
+
             if (user.role !== 'ADMIN') {
                 const isMember = db.prepare(`
                     SELECT 1 FROM chat_group_members WHERE groupId = ? AND userId = ?
@@ -69,7 +78,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                 }
             }
         } else {
-            /** Public chat slowmode check */
+
             if (user.role !== 'ADMIN') {
                 const lastMessage = db.prepare(`
                     SELECT created_at FROM chat_messages 
@@ -89,22 +98,25 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             }
         }
 
-        /** Insert into DB (even read-once messages go to DB temporarily until read) */
-        const info = db.prepare(`
-            INSERT INTO chat_messages (senderId, receiverId, groupId, text, isReadOnce, replyToId, attachment)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(user.id, receiverId, groupId, text, isReadOnce ? 1 : 0, replyToId || null, attachment || null);
 
-        const messageId = info.lastInsertRowid;
+        const messageId = insertMessage(
+            user.id,
+            text,
+            targetType,
+            targetType === 'PRIVATE' ? receiverId : (targetType === 'GROUP' ? groupId : null),
+            isReadOnce ? 1 : 0,
+            replyToId || null,
+            attachment || null
+        );
 
-        /** Group name fetch if applicable */
+
         let groupName = null;
         if (groupId) {
             const group = db.prepare(`SELECT name FROM chat_groups WHERE id = ?`).get(groupId) as { name: string } | undefined;
             if (group) groupName = group.name;
         }
 
-        /** Sender's primary group name */
+
         const senderGroupRow = db.prepare(`
             SELECT cg.id, cg.name 
             FROM chat_group_members cgm 
@@ -157,9 +169,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             created_at: new Date().toISOString()
         };
 
-        /** Broadcast logic */
+
         if (user.role === 'ADMIN' && targetType === 'GLOBAL') {
-            /** Admin global broadcast */
+
             chatStore.broadcast({ type: 'message', message: messagePayload });
             
 
@@ -171,10 +183,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             if (!memberIds.includes(user.id)) memberIds.push(user.id);
             chatStore.broadcast({ type: 'message', message: messagePayload }, memberIds);
         } else {
-            /** PUBLIC */
+
             chatStore.broadcast({ type: 'message', message: messagePayload });
 
-            /** Launch Asynchronous Moderation Daemon for PUBLIC chat only */
+
             moderateMessage(Number(messageId), text, user.id).catch(err => console.error("Moderation Daemon Error:", err));
         }
 

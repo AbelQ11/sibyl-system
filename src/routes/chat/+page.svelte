@@ -7,17 +7,20 @@
     import { browser } from '$app/environment';
     import { globalNotificationsEnabled, latestSSEEvent } from '$lib/stores';
     import VoicePlayer from '$lib/components/VoicePlayer.svelte';
+    import ChatSidebar from '$lib/components/chat/ChatSidebar.svelte';
+    import type { UserProfile, ChatMessage, ChatGroup } from '$lib/types/domain';
 
-    export let data: any;
-    const currentUser = data?.user;
+    export let data: { user: UserProfile };
+    const currentUser: UserProfile = data?.user;
 
     let currentTab: 'PUBLIC' | 'GROUP' | 'PRIVATE' = 'PUBLIC';
     let targetId: number | null = null;
-    let targetName: string = '';
+    let targetName: string = 'GLOBAL';
+    let isSidebarOpen: boolean = false;
 
-    let messages: any[] = [];
-    let groups: any[] = [];
-    let friends: any[] = [];
+    let messages: (ChatMessage & { read?: boolean; replyToMessage?: ChatMessage })[] = [];
+    let groups: ChatGroup[] = [];
+    let friends: UserProfile[] = [];
 
     let inputText = '';
     let isReadOnce = false;
@@ -25,7 +28,7 @@
     
     /** For editing messages */
     let editingMessageId: number | null = null;
-    let replyingToMessage: any = null;
+    let replyingToMessage: ChatMessage | null = null;
     let attachmentBase64: string | null = null;
     let attachmentInput: HTMLInputElement;
     let moderationPopupVisible = false;
@@ -485,45 +488,19 @@
 </svelte:head>
 
 <div class="chat-layout">
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <h3 class="sidebar-title">{$dictionary[$locale].CHAT_CHANNELS}</h3>
-        
-        <div class="sidebar-section">
-            <button class="channel-btn" class:active={currentTab === 'PUBLIC'} on:click={() => goto('/chat')}>
-                # {$dictionary[$locale].CHAT_PUBLIC_GLOBAL}
-            </button>
-        </div>
-
-        <div class="sidebar-section">
-            <h4 class="section-header">{$dictionary[$locale].CHAT_DIVISIONS}</h4>
-            {#each groups as group}
-                <button class="channel-btn" class:active={currentTab === 'GROUP' && targetId === group.id} on:click={() => goto(`/chat?group=${group.id}`)}>
-                    # {group.name.toUpperCase()}
-                </button>
-            {/each}
-            {#if groups.length === 0}
-                <div class="empty-list">{$dictionary[$locale].CHAT_NO_DIVISIONS}</div>
-            {/if}
-        </div>
-
-        <div class="sidebar-section">
-            <h4 class="section-header">{$dictionary[$locale].CHAT_SECURE_PRIVATE}</h4>
-            {#each friends as f}
-                <button class="channel-btn" class:active={currentTab === 'PRIVATE' && targetId === f.id} on:click={() => goto(`/chat?private=${f.id}`)}>
-                    @ <span class={f.role === 'ADMIN' ? 'blurred' : ''}>{f.role === 'ADMIN' ? 'XXXXXXXXXX' : f.username.toUpperCase()}</span>
-                </button>
-            {/each}
-            {#if friends.length === 0}
-                <div class="empty-list">{$dictionary[$locale].CHAT_NO_CONNECTIONS}</div>
-            {/if}
-        </div>
-    </div>
+    <ChatSidebar 
+        bind:isSidebarOpen 
+        {currentTab} 
+        {targetId} 
+        {groups} 
+        {friends} 
+    />
 
     <!-- MAIN CHAT AREA -->
     <div class="chat-container">
         <div class="chat-header">
             <h2>
+                <button class="burger-btn" on:click={() => isSidebarOpen = true}>☰</button>
                 {$dictionary[$locale].CHAT_HEADER_PREFIX} {currentTab} 
                 {#if targetName}
                     {#if currentTab === 'GROUP'}
@@ -792,6 +769,8 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .chat-header {
@@ -807,7 +786,7 @@
     .clickable-group { cursor: pointer; transition: color 0.2s; color: var(--main-color, #00ffcc); text-decoration: underline; text-underline-offset: 4px; }
     .clickable-group:hover { color: #fff; text-shadow: 0 0 10px var(--main-color, #00ffcc); }
 
-    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; min-height: 0; -webkit-overflow-scrolling: touch; }
     
     .action-btn { background: transparent; border: 1px solid #ffaa00; color: #ffaa00; padding: 5px 10px; cursor: pointer; font-size: 0.8rem; }
     .action-btn:hover { background: #ffaa00; color: #000; }
@@ -947,10 +926,89 @@
 
     .input-row { display: flex; gap: 10px; flex: 1; }
     .input-row input { flex: 1; background: var(--border-color, rgba(0, 255, 204, 0.05)); border: 1px solid var(--main-color, #00ffcc); color: #fff; padding: 10px 15px; font-family: inherit; font-size: 1rem; }
-    .input-row input:focus { outline: none; box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.3)); background: var(--border-color, rgba(0, 255, 204, 0.1)); }
-    .input-row button { background: var(--main-color, #00ffcc); color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: inherit; letter-spacing: 1px; transition: all 0.2s; }
-    .input-row button:hover:not(:disabled) { box-shadow: 0 0 15px var(--main-glow, rgba(0, 255, 204, 0.5)); }
-    .input-row button:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .input-row input:focus { outline: 1px solid #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); }
+    .send-btn { background: var(--main-color, #00ffcc); border: none; color: #000; padding: 10px 20px; cursor: pointer; font-family: inherit; font-weight: bold; font-size: 1rem; transition: all 0.2s; flex-shrink: 0; }
+    .send-btn:hover:not(:disabled) { box-shadow: 0 0 15px var(--main-color, #00ffcc); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .burger-btn { display: none; background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); font-size: 1.2rem; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+    .sidebar-overlay { display: none; }
+
+    @media (max-width: 768px) {
+        .burger-btn { display: block; }
+        
+        .chat-layout {
+            flex-direction: column;
+            margin: 0;
+            height: calc(100vh - 60px);
+            border: none;
+            border-top: 1px solid var(--main-color, #00ffcc);
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            max-height: none;
+            z-index: 2000;
+            background: rgba(5, 5, 5, 0.98);
+            border-right: 1px solid var(--main-color, #00ffcc);
+            border-bottom: none;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+
+        .sidebar-overlay {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(3px);
+            z-index: 1500;
+        }
+
+        .chat-header {
+            padding: 10px 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .chat-history {
+            padding: 10px;
+        }
+        .chat-avatar {
+            width: 30px;
+            height: 30px;
+        }
+        .message-row {
+            gap: 10px;
+        }
+        .input-controls {
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .read-once-toggle {
+            width: 35px;
+            height: 35px;
+            font-size: 1.2rem;
+        }
+        .attach-btn {
+            height: 35px;
+        }
+        .input-row {
+            width: 100%;
+        }
+        .send-btn {
+            padding: 10px 15px;
+        }
+        .header-actions {
+            flex-wrap: wrap;
+        }
+    }
     
     .char-count { text-align: right; font-size: 0.75rem; margin-top: 8px; opacity: 0.7; }
     .char-count.limit { color: #ff3333; font-weight: bold; opacity: 1; }

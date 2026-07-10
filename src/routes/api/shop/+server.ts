@@ -1,13 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getSession } from '$lib/server/session';
 
 export async function GET({ cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = sessionId;
+    const userId = session.userId;
 
     try {
         const user = db.prepare('SELECT credits, role, last_login_date FROM users WHERE id = ?').get(userId) as { credits: number, role: string, last_login_date: string };

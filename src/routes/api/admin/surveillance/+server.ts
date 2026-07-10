@@ -1,14 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { env } from '$env/dynamic/private';
+import { getAuthUser } from '$lib/server/auth';
 
 export async function GET({ request, url, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const adminUser = db.prepare('SELECT role, username FROM users WHERE id = ?').get(sessionId) as { role: string, username: string } | undefined;
+    const adminUser = getAuthUser(cookies.get('session'));
     const adminAccountId = env.ADMIN_ACCOUNT_ID || 'Makishimadmin';
     
     if (!adminUser || (adminUser.role !== 'ADMIN' && adminUser.username !== adminAccountId)) {
@@ -38,12 +34,12 @@ export async function GET({ request, url, cookies }) {
             ORDER BY m.created_at ASC
         `).all(targetUser.id, targetUser.id) as any[];
 
-        /** Group messages by the "other" person */
+
         const conversations: Record<number, { otherUserId: number, otherUsername: string, messages: any[] }> = {};
 
         for (const msg of messages) {
             const otherUserId = msg.senderId === targetUser.id ? msg.receiverId : msg.senderId;
-            /** Get other username */
+
             if (!conversations[otherUserId]) {
                 const otherUserRow = db.prepare('SELECT username FROM users WHERE id = ?').get(otherUserId) as { username: string };
                 conversations[otherUserId] = {

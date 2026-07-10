@@ -130,4 +130,10 @@
     .equip-btn:hover { background: #ffd700; color: #000; box-shadow: 0 0 10px #ffd700; }
     .unequip-btn { width: 100%; border-color: #ff3333; color: #ff3333; }
     .unequip-btn:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
+
+    @media (max-width: 768px) {
+        .shop-container { padding: 15px; }
+        .shop-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+        .header-section { flex-direction: column; align-items: stretch; gap: 10px; }
+    }
 </style>

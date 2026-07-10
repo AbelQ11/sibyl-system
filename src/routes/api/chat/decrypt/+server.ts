@@ -1,12 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { chatStore } from '$lib/server/chatStore';
+import { getAuthUser } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
+/**
+ * Deletes a read-once (classified) message immediately after decryption.
+ * Enforces the self-destruct mechanism for secure communications.
+ *
+ * @param request - The HTTP request containing the target messageId.
+ * @param cookies - The request cookies used for session authentication.
+ * @returns JSON response indicating successful secure deletion.
+ */
 export const DELETE: RequestHandler = async ({ request, cookies }) => {
-    const sessionId = cookies.get('session');
-    
-    if (!sessionId) {
+    if (!getAuthUser(cookies.get('session'))) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,7 +25,7 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
             return json({ error: 'Message ID is required' }, { status: 400 });
         }
 
-        /** Fetch the message to ensure it exists and isReadOnce is true */
+
         const message = db.prepare(`SELECT * FROM chat_messages WHERE id = ?`).get(messageId) as any;
         
         if (!message) {
@@ -29,10 +36,10 @@ export const DELETE: RequestHandler = async ({ request, cookies }) => {
             return json({ error: 'Message is not a Read-Once message' }, { status: 400 });
         }
 
-        /** Delete it from the database */
+
         db.prepare(`DELETE FROM chat_messages WHERE id = ?`).run(messageId);
 
-        /** Broadcast deletion event to all clients so they remove it from UI */
+
         let targetUserIds = undefined;
         if (message.receiverId) {
             targetUserIds = [message.senderId, message.receiverId];

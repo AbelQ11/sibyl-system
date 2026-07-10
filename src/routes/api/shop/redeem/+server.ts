@@ -1,13 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getSession } from '$lib/server/session';
 
 export async function POST({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = sessionId;
+    const userId = session.userId;
 
     try {
         const { code } = await request.json();

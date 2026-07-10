@@ -1,18 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getSession } from '$lib/server/session';
 
 export async function GET({ url, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const query = url.searchParams.get('query') || '';
 
     try {
-        const userId = parseInt(sessionId);
+        const userId = session.userId;
 
-        /** Fetch users matching query (excluding current user) joined with active/pending request status */
+
         const users = db.prepare(`
             SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy,
                    r.id as requestId, r.status as requestStatus, r.senderId as requestSenderId

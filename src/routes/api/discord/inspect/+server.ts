@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import * as env_static from '$env/static/private';
+import { getAuthUser } from '$lib/server/auth';
 
 export async function GET({ url, request, cookies }) {
     const query = url.searchParams.get('query');
@@ -32,15 +33,14 @@ export async function GET({ url, request, cookies }) {
     const botSecret = (env_static as any).SIB_BOT_SECRET;
     const isAuthorizedBot = botSecret && authHeader === `Bearer ${botSecret}`;
 
-    /** 2. Check if the requester is logged in as an administrator */
-    const sessionId = cookies.get('session');
+
     let isAdmin = false;
-    if (sessionId) {
-        const requester = db.prepare('SELECT role FROM users WHERE id = ?').get(parseInt(sessionId)) as { role: string } | undefined;
-        isAdmin = requester?.role === 'ADMIN';
+    const user = getAuthUser(cookies.get('session'));
+    if (user && user.role === 'ADMIN') {
+        isAdmin = true;
     }
 
-    /** 3. Check if the request is from Discord and triggered by a Discord user linked to a SIBYL Admin account */
+
     const requesterDiscordId = url.searchParams.get('requesterDiscordId');
     let requesterIsAdminOnDiscord = false;
     if (requesterDiscordId) {
@@ -48,7 +48,7 @@ export async function GET({ url, request, cookies }) {
         requesterIsAdminOnDiscord = adminProfiles.length > 0;
     }
 
-    /** Evaluate privacy clearance */
+
     if (targetUser.privacy === 'PUBLIC' || isAdmin || (isAuthorizedBot && requesterIsAdminOnDiscord)) {
         let hue = 'Clear';
         let status = 'Optimal Citizen';

@@ -1,12 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getSession } from '$lib/server/session';
 
 export async function GET({ url, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const loggedInId = parseInt(sessionId);
+    const loggedInId = session.userId;
     const userId = url.searchParams.get('userId');
 
     if (!userId) {
@@ -28,7 +29,7 @@ export async function GET({ url, cookies }) {
             });
         }
 
-        /** Security check: Must respect privacy settings (PRIVATE, FRIENDS, PUBLIC) unless the requester is an admin */
+
         const requester = db.prepare('SELECT role FROM users WHERE id = ?').get(loggedInId) as { role: string } | undefined;
         const isAdmin = requester?.role === 'ADMIN';
 

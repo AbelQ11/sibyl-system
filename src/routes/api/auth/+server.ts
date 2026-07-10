@@ -1,10 +1,12 @@
 import { db } from "$lib/server/db";
+import { createSession, deleteSession, getCookieOptions } from '$lib/server/session';
+import { generateCitizenId } from '$lib/server/auth';
 import bcrypt from 'bcryptjs';
 import { json } from '@sveltejs/kit';
 
 /**
  * Handles authentication requests including user registration, login, and logout.
- * 
+ *
  * @param {Object} event - The SvelteKit request event.
  * @param {Request} event.request - The incoming HTTP request containing the action and credentials.
  * @param {import('@sveltejs/kit').Cookies} event.cookies - The cookies object for session management.
@@ -29,27 +31,13 @@ export async function POST({ request, cookies }) {
 
         try {
             const hash = await bcrypt.hash(password, 10);
-            
-            let citizenId = '';
-            let isUnique = false;
-            while (!isUnique) {
-                let numStr = '';
-                for (let i = 0; i < 8; i++) {
-                    numStr += Math.floor(Math.random() * 10).toString();
-                }
-                citizenId = `SIB-${numStr}`;
-                
-                const existing = db.prepare('SELECT id FROM users WHERE citizen_id = ?').get(citizenId);
-                if (!existing) {
-                    isUnique = true;
-                }
-            }
+            const citizenId = generateCitizenId();
 
             const stmt = db.prepare('INSERT INTO users (username, password, citizen_id) VALUES (?, ?, ?)');
             const result = stmt.run(username, hash, citizenId);
-            
-            const newUserId = result.lastInsertRowid;
-            
+
+            const newUserId = Number(result.lastInsertRowid);
+
             try {
                 const admin = db.prepare("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1").get() as { id: number } | undefined;
                 if (admin) {
@@ -59,7 +47,8 @@ export async function POST({ request, cookies }) {
                 console.error("Failed to auto-add admin as friend:", err);
             }
 
-            cookies.set('session', newUserId.toString(), { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
+            const token = createSession(newUserId);
+            cookies.set('session', token, getCookieOptions());
             return json({ success: true, code: 'REG_OK', user: username });
         } catch (e) {
             return json({ success: false, code: 'REG_ERR' });
@@ -68,10 +57,11 @@ export async function POST({ request, cookies }) {
 
     if (action === 'LOGIN') {
         const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-        const user = stmt.get(username) as { id: number, username: string, password: string, avatar: string | null } | undefined;
+        const user = stmt.get(username) as { id: number; username: string; password: string; avatar: string | null } | undefined;
 
         if (user && await bcrypt.compare(password, user.password)) {
-            cookies.set('session', user.id.toString(), { path: '/', httpOnly: true, sameSite: 'lax', secure: false });
+            const token = createSession(user.id);
+            cookies.set('session', token, getCookieOptions());
 
             return json({
                 success: true,
@@ -84,6 +74,8 @@ export async function POST({ request, cookies }) {
     }
 
     if (action === 'LOGOUT') {
+        const token = cookies.get('session');
+        if (token) deleteSession(token);
         cookies.delete('session', { path: '/' });
         return json({ success: true });
     }

@@ -1,16 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(sessionId) as any;
+    const user = getAuthUser(cookies.get('session')) as any;
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        /** Exclude password hash from export */
+
         delete user.password;
 
         const stats = db.prepare(`SELECT * FROM userStats WHERE userId = ?`).all(user.id);

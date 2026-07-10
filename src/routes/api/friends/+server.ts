@@ -1,21 +1,20 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { chatStore } from '$lib/server/chatStore';
+import { getAuthUser } from '$lib/server/auth';
 
 export async function GET({ cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const userRole = getAuthUser(cookies.get('session'));
+    if (!userRole) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        const userId = parseInt(sessionId);
-
-        const userRole = db.prepare(`SELECT role FROM users WHERE id = ?`).get(userId) as { role: string };
+        const userId = userRole.id;
 
         let friends;
         if (userRole.role === 'ADMIN') {
-            /** Admins are friends with everyone */
+
             friends = db.prepare(`
                 SELECT u.id, u.username, u.avatar, u.citizen_id, u.role,
                        (SELECT cc FROM userStats WHERE userId = u.id ORDER BY id DESC LIMIT 1) as last_cc
@@ -23,7 +22,7 @@ export async function GET({ cookies }) {
                 WHERE u.id != ?
             `).all(userId) as { id: number, username: string, avatar: string | null, citizen_id: string, role: string, last_cc: number | null }[];
         } else {
-            /** Regular users get their accepted friends + all Admins */
+
             friends = db.prepare(`
                 SELECT u.id, u.username, u.avatar, u.citizen_id, u.role,
                        (SELECT cc FROM userStats WHERE userId = u.id ORDER BY id DESC LIMIT 1) as last_cc
@@ -55,8 +54,8 @@ export async function GET({ cookies }) {
 }
 
 export async function POST({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -66,7 +65,7 @@ export async function POST({ request, cookies }) {
     }
 
     try {
-        const userId = parseInt(sessionId);
+        const userId = session.userId;
 
         const target = db.prepare(`
             SELECT id, username, role FROM users 
@@ -93,7 +92,7 @@ export async function POST({ request, cookies }) {
         db.prepare('INSERT INTO friend_requests (senderId, receiverId, status) VALUES (?, ?, ?)')
           .run(userId, target.id, 'PENDING');
 
-        /** Broadcast notification */
+
         chatStore.broadcast({
             type: 'notification',
             receiverId: target.id,
@@ -109,8 +108,8 @@ export async function POST({ request, cookies }) {
 }
 
 export async function PUT({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -120,7 +119,7 @@ export async function PUT({ request, cookies }) {
     }
 
     try {
-        const userId = parseInt(sessionId);
+        const userId = session.userId;
 
         const req = db.prepare('SELECT id, receiverId FROM friend_requests WHERE id = ?').get(requestId) as { id: number, receiverId: number } | undefined;
         if (!req || req.receiverId !== userId) {
@@ -137,15 +136,15 @@ export async function PUT({ request, cookies }) {
 }
 
 export async function DELETE({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) {
+    const session = getSession(cookies.get('session'));
+    if (!session) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { requestId, friendId } = await request.json();
 
     try {
-        const userId = parseInt(sessionId);
+        const userId = session.userId;
 
         if (requestId) {
             const req = db.prepare('SELECT id, senderId, receiverId FROM friend_requests WHERE id = ?').get(requestId) as { id: number, senderId: number, receiverId: number } | undefined;

@@ -1,11 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
 
 export async function GET({ cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(sessionId) as { role: string };
+    const user = getAuthUser(cookies.get('session'));
     if (!user || user.role !== 'ADMIN') return json({ error: 'Forbidden' }, { status: 403 });
 
     try {
@@ -17,10 +15,7 @@ export async function GET({ cookies }) {
 }
 
 export async function POST({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(sessionId) as { role: string };
+    const user = getAuthUser(cookies.get('session'));
     if (!user || user.role !== 'ADMIN') return json({ error: 'Forbidden' }, { status: 403 });
 
     try {
@@ -40,10 +35,7 @@ export async function POST({ request, cookies }) {
 }
 
 export async function PUT({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(sessionId) as { role: string };
+    const user = getAuthUser(cookies.get('session'));
     if (!user || user.role !== 'ADMIN') return json({ error: 'Forbidden' }, { status: 403 });
 
     try {
@@ -63,10 +55,7 @@ export async function PUT({ request, cookies }) {
 }
 
 export async function DELETE({ request, cookies }) {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(sessionId) as { role: string };
+    const user = getAuthUser(cookies.get('session'));
     if (!user || user.role !== 'ADMIN') return json({ error: 'Forbidden' }, { status: 403 });
 
     try {

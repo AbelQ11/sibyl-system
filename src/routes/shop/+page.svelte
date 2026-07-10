@@ -266,4 +266,22 @@
         color: var(--main-color, #00ffcc);
         font-size: 0.8rem;
     }
+
+    @media (max-width: 768px) {
+        .shop-container { padding: 15px; }
+        .shop-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+        .preview-panel {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .header-section {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        .credits-display { margin-left: 0; text-align: center; }
+    }
 </style>

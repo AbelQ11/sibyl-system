@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
+    const user = getAuthUser(cookies.get('session'));
+    if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const groupId = parseInt(params.id);
@@ -35,10 +36,7 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 };
 
 export const PUT: RequestHandler = async ({ params, request, cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare('SELECT id, role FROM users WHERE id = ?').get(sessionId) as any;
+    const user = getAuthUser(cookies.get('session')) as any;
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
@@ -67,10 +65,7 @@ export const PUT: RequestHandler = async ({ params, request, cookies }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, cookies }) => {
-    const sessionId = cookies.get('session');
-    if (!sessionId) return json({ error: 'Unauthorized' }, { status: 401 });
-
-    const user = db.prepare('SELECT id, role FROM users WHERE id = ?').get(sessionId) as any;
+    const user = getAuthUser(cookies.get('session')) as any;
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {

@@ -1,21 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { chatStore } from '$lib/server/chatStore';
+import { getAuthUser } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
-    const sessionId = cookies.get('session');
-    
-    if (!sessionId) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = db.prepare(`
-        SELECT id, username 
-        FROM users 
-        WHERE id = ?
-    `).get(sessionId) as any;
-
+    const user = getAuthUser(cookies.get('session')) as any;
     if (!user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }

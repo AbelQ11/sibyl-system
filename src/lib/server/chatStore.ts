@@ -4,18 +4,19 @@
  */
 
 type ChatClient = {
-    /** db user IDs are numbers */
+
     userId: number;
     controller: ReadableStreamDefaultController;
 };
 
 export const chatStore = {
     clients: new Set<ChatClient>(),
+    _heartbeatTimer: null as ReturnType<typeof setInterval> | null,
 
     addClient(userId: number, controller: ReadableStreamDefaultController) {
         const client = { userId, controller };
         this.clients.add(client);
-        
+        this._ensureHeartbeat();
         return client;
     },
 
@@ -23,7 +24,7 @@ export const chatStore = {
         this.clients.delete(client);
     },
 
-    /** Broadcast a message to specific users or all users */
+
     broadcast(message: any, targetUserIds?: number[]) {
         const payload = `data: ${JSON.stringify(message)}\n\n`;
 
@@ -32,10 +33,42 @@ export const chatStore = {
                 try {
                     client.controller.enqueue(new TextEncoder().encode(payload));
                 } catch (e) {
-                    /** Controller might be closed, remove the dead client */
+
                     this.removeClient(client);
                 }
             }
         });
+    },
+
+
+    _ping() {
+        const pingPayload = new TextEncoder().encode(': ping\n\n');
+        this.clients.forEach(client => {
+            try {
+                client.controller.enqueue(pingPayload);
+            } catch (e) {
+                this.removeClient(client);
+            }
+        });
+    },
+
+
+    _ensureHeartbeat() {
+        if (this._heartbeatTimer !== null) return;
+        this._heartbeatTimer = setInterval(() => {
+            if (this.clients.size === 0) {
+                this.stopHeartbeat();
+                return;
+            }
+            this._ping();
+        }, 30_000);
+    },
+
+
+    stopHeartbeat() {
+        if (this._heartbeatTimer !== null) {
+            clearInterval(this._heartbeatTimer);
+            this._heartbeatTimer = null;
+        }
     }
 };

@@ -1,10 +1,26 @@
 import { json } from '@sveltejs/kit';
 import { queryAI } from '$lib/server/aiFallbackEngine';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
+import { insertCC } from '$lib/server/repositories/statsRepository';
 
-export async function POST({ request }) {
+/**
+ * Submits user text to the AI Fallback Engine for psychological analysis.
+ * Generates a Crime Coefficient (CC) penalty and recommended treatment protocols.
+ * Logs the resulting CC penalty into the userStats repository.
+ *
+ * @param request - The HTTP request containing the user's text submission.
+ * @param cookies - The request cookies used for session authentication.
+ * @returns JSON response containing the calculated CC, clinical analysis, and treatment.
+ */
+export async function POST({ request, cookies }) {
+    const user = getAuthUser(cookies.get('session'));
+    if (!user) {
+        return json({ error: 'Unauthorized: Active session required.' }, { status: 401 });
+    }
+
     try {
-        const { text, userId } = await request.json();
+        const { text } = await request.json();
 
         const systemPrompt = `You are the Sibyl System Empathy AI. You are clinical, objective, and analytical.
             The user will provide text describing their emotional state.
@@ -44,32 +60,22 @@ export async function POST({ request }) {
             treatment = ["Execute calming control protocols.", "Initialize rhythmic focus.", "Stabilize baseline metrics."];
         }
 
-        if (!userId || userId === 'GUEST_PROFILE') {
-            return json({ error: 'Unauthorized: Citizen identification required.' }, { status: 401 });
-        }
-
-        const parsedData = { cc, analysis, treatment };
+        const parsedData: any = { cc, analysis, treatment };
 
         try {
-            const userRow = db.prepare('SELECT id FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number } | undefined;
-            if (userRow) {
-                db.prepare("INSERT INTO userStats (userId, cc, type) VALUES (?, ?, 'terminal')")
-                    .run(userRow.id, parsedData.cc);
+            insertCC(user.id, cc, 'terminal');
 
-                const today = new Date().toISOString().split('T')[0];
-                const userData = db.prepare('SELECT last_scan_date, credits FROM users WHERE id = ?').get(userRow.id) as { last_scan_date: string, credits: number };
-                
-                let creditsEarned = 0;
-                if (userData.last_scan_date !== today) {
-                    db.prepare('UPDATE users SET last_scan_date = ?, credits = credits + 20 WHERE id = ?').run(today, userRow.id);
-                    creditsEarned = 20;
-                }
+            const today = new Date().toISOString().split('T')[0];
+            const userData = db.prepare('SELECT last_scan_date FROM users WHERE id = ?').get(user.id) as { last_scan_date: string };
 
-                Object.assign(parsedData, { creditsEarned });
-                /** Discord webhook integration removed. */
-            } else {
-                console.warn(`[SIBYL API WARNING]: Citizen '${userId}' not found in database registry for logging.`);
+            let creditsEarned = 0;
+            if (userData.last_scan_date !== today) {
+                db.prepare('UPDATE users SET last_scan_date = ?, credits = credits + 20 WHERE id = ?').run(today, user.id);
+                creditsEarned = 20;
             }
+
+            parsedData.creditsEarned = creditsEarned;
+
         } catch (dbErr) {
             console.error("Database tracking failure:", dbErr);
         }

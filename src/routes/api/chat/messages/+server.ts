@@ -1,26 +1,23 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 
+/**
+ * Retrieves the chat history for the authenticated user.
+ * Fetches public messages, direct messages, and group messages the user is part of.
+ * Administrators bypass these filters to monitor all communications.
+ *
+ * @param cookies - The request cookies used for session authentication.
+ * @returns JSON response containing up to 200 formatted chat messages.
+ */
 export const GET: RequestHandler = async ({ cookies }) => {
-    const sessionId = cookies.get('session');
-    
-    if (!sessionId) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = db.prepare(`SELECT id, role FROM users WHERE id = ?`).get(sessionId) as any;
-    if (!user) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const user = getAuthUser(cookies.get('session')) as any;
+    if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        /**
-         * Fetch public messages, messages addressed to user, messages sent by user, 
-         * and messages in groups the user belongs to.
-         * For admin, fetch everything (or everything public/global for simplicity).
-         */
         
+
         let messagesQuery = `
             SELECT m.*, 
                    u.username as senderName, 
@@ -49,7 +46,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
         `;
 
         if (user.role === 'ADMIN') {
-            /** Admin sees all (except maybe private messages they aren't part of unless they want to, but let's just let them see all for monitoring) */
+
             messagesQuery = `
                 SELECT m.*, 
                        u.username as senderName, 
@@ -92,7 +89,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
             }
         }
 
-        /** Format to match the SSE payload structure */
+
         const formattedMessages = rawMessages.map(m => {
             let replyToMessage = null;
             if (m.replyToId && m.parentText) {

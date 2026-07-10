@@ -1,38 +1,34 @@
 import { db } from '$lib/server/db';
+import { getSession } from '$lib/server/session';
+import { generateCitizenId } from '$lib/server/auth';
+import { cleanExpiredSessions } from '$lib/server/session';
 import type { LayoutServerLoad } from './$types';
 import { env } from '$env/dynamic/private';
 
+cleanExpiredSessions();
+
 export const load: LayoutServerLoad = async ({ cookies }) => {
     const adminAccountId = env.ADMIN_ACCOUNT_ID || 'Makishimadmin';
-    const sessionId = cookies.get('session');
-    
-    if (sessionId) {
+    const token = cookies.get('session');
+
+    if (token) {
         try {
+            const session = getSession(token);
+            if (!session) return { adminAccountId, user: null };
+
             const user = db.prepare(`
                 SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy, u.discord_username, u.discord_id, u.role, u.bio, u.credits,
                        (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'interface_theme' AND uc.equipped = 1 LIMIT 1) as interface_theme,
                        (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'pointer_skin' AND uc.equipped = 1 LIMIT 1) as pointer_skin
-                FROM users u 
+                FROM users u
                 WHERE u.id = ?
-            `).get(sessionId) as any;
+            `).get(session.userId) as any;
+
             if (user) {
+                // Self-heal any missing/invalid citizen_id
                 let citizenId = user.citizen_id;
-                
-                const isValidId = citizenId && /^SIB-\d{8}$/.test(citizenId);
-                if (!isValidId) {
-                    let isUnique = false;
-                    while (!isUnique) {
-                        let numStr = '';
-                        for (let i = 0; i < 8; i++) {
-                            numStr += Math.floor(Math.random() * 10).toString();
-                        }
-                        citizenId = `SIB-${numStr}`;
-                        
-                        const existing = db.prepare('SELECT id FROM users WHERE citizen_id = ?').get(citizenId);
-                        if (!existing) {
-                            isUnique = true;
-                        }
-                    }
+                if (!citizenId || !/^SIB-\d{8}$/.test(citizenId)) {
+                    citizenId = generateCitizenId();
                     db.prepare('UPDATE users SET citizen_id = ? WHERE id = ?').run(citizenId, user.id);
                     console.log(`[SELF-HEALING ID] Regenerated valid ID ${citizenId} for user ${user.username}`);
                 }
@@ -59,9 +55,6 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
             console.error('Failed to restore user session from cookie:', e);
         }
     }
-    
-    return {
-        adminAccountId,
-        user: null
-    };
+
+    return { adminAccountId, user: null };
 };
