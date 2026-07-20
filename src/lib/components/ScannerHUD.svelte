@@ -14,6 +14,7 @@
     let liveDilation = 'NORMAL';
     let reportCollapsed = false;
     let dataCollapsed = false;
+    let scanExpressions: Record<string, number> | null = null;
 
     function getDiagVal(type: 'HEART' | 'PUPIL' | 'BREATH' | 'EMOTION' | 'BRAIN', cc: number): string {
         const dict = $dictionary[$locale];
@@ -75,14 +76,152 @@
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             if (videoElement) videoElement.srcObject = stream;
+            runRealScan();
         } catch (e) {
             console.error("Camera access denied or not found", e);
+            runMockScan();
         }
-        runMockScan();
     }
 
     function refusePrivacy() {
         showPrivacyModal = false;
+    }
+
+    let modelsLoaded = false;
+    
+    async function runRealScan() {
+        scanning = true;
+        appMode.set('SCANNING');
+        
+        let scrambleInterval = setInterval(() => {
+            if (!modelsLoaded) {
+                liveCCDisplay = Math.floor(Math.random() * 400 + 40).toString();
+                livePulse = Math.floor(Math.random() * 40 + 80).toString() + " BPM";
+                liveEmotion = "LOADING ML MODELS...";
+                liveDilation = Math.random() > 0.5 ? 'DILATED' : 'STRETCHED';
+            }
+        }, 80);
+
+        try {
+            // @ts-ignore
+            const faceapi = await import('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.esm.js');
+
+            if (!modelsLoaded) {
+                const modelPath = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(modelPath),
+                    faceapi.nets.faceExpressionNet.loadFromUri(modelPath)
+                ]);
+                modelsLoaded = true;
+            }
+            
+            let detectionDuration = 3000; 
+            let startTime = Date.now();
+            
+            let finalCC = 0;
+            let detectionsCount = 0;
+            let cumulativeExpressions: Record<string, number> = {};
+            
+            const detectInterval = setInterval(async () => {
+                if (videoElement && videoElement.readyState >= 2) {
+                    const detections = await faceapi.detectSingleFace(videoElement, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+                    
+                    if (detections) {
+                        detectionsCount++;
+                        const expr = detections.expressions;
+                        
+                        for (const [e, val] of Object.entries(expr)) {
+                            cumulativeExpressions[e] = (cumulativeExpressions[e] || 0) + (val as number);
+                        }
+
+                        let tempCC = 50; 
+                        tempCC += (expr.angry || 0) * 300;
+                        tempCC += (expr.fearful || 0) * 300;
+                        tempCC += (expr.sad || 0) * 150;
+                        tempCC += (expr.disgusted || 0) * 150;
+                        tempCC += (expr.surprised || 0) * 100;
+                        tempCC -= (expr.happy || 0) * 20;
+                        tempCC -= (expr.neutral || 0) * 10;
+                        
+                        if (tempCC < 0) tempCC = 0;
+                        if (tempCC > 500) tempCC = 500;
+                        
+                        finalCC = (finalCC * (detectionsCount - 1) + tempCC) / detectionsCount;
+                        
+                        liveCCDisplay = Math.floor(tempCC).toString();
+                        
+                        let maxEmotion = 'neutral';
+                        let maxVal = -1;
+                        for (const [e, val] of Object.entries(expr)) {
+                            const v = val as number;
+                            if (v > maxVal) {
+                                maxVal = v;
+                                maxEmotion = e;
+                            }
+                        }
+                        liveEmotion = `EMOTION: ${maxEmotion.toUpperCase()}`;
+                        
+                        if (tempCC > 100) {
+                            livePulse = Math.floor(Math.random() * 40 + 100).toString() + " BPM";
+                            liveDilation = 'DILATED';
+                        } else {
+                            livePulse = Math.floor(Math.random() * 20 + 60).toString() + " BPM";
+                            liveDilation = 'NORMAL';
+                        }
+                    } else {
+                        liveEmotion = "NO FACE DETECTED";
+                        liveCCDisplay = "--";
+                    }
+                }
+                
+                if (Date.now() - startTime > detectionDuration) {
+                    clearInterval(detectInterval);
+                    clearInterval(scrambleInterval);
+                    
+                    if (detectionsCount === 0) {
+                        finalCC = Math.floor(Math.random() * 461) + 40;
+                        scanExpressions = null;
+                    } else {
+                        scanExpressions = {};
+                        for (const [e, val] of Object.entries(cumulativeExpressions)) {
+                            scanExpressions[e] = val / detectionsCount;
+                        }
+                    }
+                    
+                    let result = Math.floor(finalCC);
+                    if (result < 0) result = 0;
+                    if (result > 500) result = 500;
+                    
+                    crimeCoefficient.set(result);
+                    liveCCDisplay = result.toString();
+                    scanning = false;
+                    appMode.set('RESULTS');
+                    
+                    if (typeof window !== 'undefined' && (window as any).umami) {
+                        (window as any).umami.track('biometric-scan', { cc: result });
+                    }
+                    
+                    livePulse = getDiagVal('HEART', result);
+                    liveDilation = getDiagVal('PUPIL', result);
+                    liveEmotion = getDiagVal('EMOTION', result);
+
+                    try {
+                        await fetch('/api/save-biometric', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ cc: result, userId: $currentUser })
+                        });
+                    } catch (err) {
+                        console.error("Database sync failed:", err);
+                    }
+                }
+            }, 200);
+            
+        } catch (error) {
+            console.error("Face API failed:", error);
+            clearInterval(scrambleInterval);
+            runMockScan();
+        }
     }
 
     async function runMockScan() {
@@ -203,26 +342,36 @@
                 </div>
                 {#if !reportCollapsed}
                     <div class="diagnostic-breakdown" transition:fade>
-                        <div class="diag-row">
-                            <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_HEART}:</span>
-                            <span class="diag-val">{getDiagVal('HEART', $crimeCoefficient)}</span>
-                        </div>
-                        <div class="diag-row">
-                            <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_PUPIL}:</span>
-                            <span class="diag-val">{getDiagVal('PUPIL', $crimeCoefficient)}</span>
-                        </div>
-                        <div class="diag-row">
-                            <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_BREATH}:</span>
-                            <span class="diag-val">{getDiagVal('BREATH', $crimeCoefficient)}</span>
-                        </div>
-                        <div class="diag-row">
-                            <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_EMOTION}:</span>
-                            <span class="diag-val">{getDiagVal('EMOTION', $crimeCoefficient)}</span>
-                        </div>
-                        <div class="diag-row">
-                            <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_BRAIN}:</span>
-                            <span class="diag-val">{getDiagVal('BRAIN', $crimeCoefficient)}</span>
-                        </div>
+                        {#if scanExpressions}
+                            <div class="diag-title" style="font-size: 0.7rem; opacity: 0.8; margin-bottom: 8px;">// ML EMOTION VECTORS //</div>
+                            {#each Object.entries(scanExpressions).sort((a,b) => b[1] - a[1]).slice(0, 5) as [emo, val]}
+                                <div class="diag-row">
+                                    <span class="diag-label">{emo.toUpperCase()}:</span>
+                                    <span class="diag-val">{(val * 100).toFixed(1)}%</span>
+                                </div>
+                            {/each}
+                        {:else}
+                            <div class="diag-row">
+                                <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_HEART}:</span>
+                                <span class="diag-val">{getDiagVal('HEART', $crimeCoefficient)}</span>
+                            </div>
+                            <div class="diag-row">
+                                <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_PUPIL}:</span>
+                                <span class="diag-val">{getDiagVal('PUPIL', $crimeCoefficient)}</span>
+                            </div>
+                            <div class="diag-row">
+                                <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_BREATH}:</span>
+                                <span class="diag-val">{getDiagVal('BREATH', $crimeCoefficient)}</span>
+                            </div>
+                            <div class="diag-row">
+                                <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_EMOTION}:</span>
+                                <span class="diag-val">{getDiagVal('EMOTION', $crimeCoefficient)}</span>
+                            </div>
+                            <div class="diag-row">
+                                <span class="diag-label">{$dictionary[$locale].DIAG_LABEL_BRAIN}:</span>
+                                <span class="diag-val">{getDiagVal('BRAIN', $crimeCoefficient)}</span>
+                            </div>
+                        {/if}
                         <hr class="card-divider" />
                         <p class="diagnostic-reason" class:lethal={$crimeCoefficient > 300} class:warning={$crimeCoefficient > 100 && $crimeCoefficient <= 300}>
                             {getDiagReason($crimeCoefficient)}

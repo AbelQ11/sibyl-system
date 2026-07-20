@@ -13,7 +13,7 @@ import type { RequestHandler } from './$types';
 
 const SendMessageSchema = z.object({
     text: z.string().min(1, 'Message text is required').max(250, 'Message exceeds 250 characters limit'),
-    targetType: z.enum(['PUBLIC', 'GROUP', 'PRIVATE']),
+    targetType: z.enum(['PUBLIC', 'GROUP', 'PRIVATE', 'GLOBAL']),
     targetId: z.number().nullable().optional(),
     isReadOnce: z.boolean().optional().default(false),
     replyToId: z.number().nullable().optional(),
@@ -47,7 +47,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         const body = await request.json();
         const parsed = SendMessageSchema.safeParse(body);
         if (!parsed.success) {
-            return json({ error: parsed.error.errors[0].message }, { status: 400 });
+            return json({ error: parsed.error.issues[0].message }, { status: 400 });
         }
         
         const { text, targetType, targetId, isReadOnce, replyToId, attachment } = parsed.data;
@@ -61,13 +61,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
         const cc = getLatestCC(user.id);
 
-        let receiverId = null;
-        let groupId = null;
+        let receiverId: number | null = null;
+        let groupId: number | null = null;
 
         if (targetType === 'PRIVATE') {
-            receiverId = targetId;
+            receiverId = targetId ?? null;
         } else if (targetType === 'GROUP') {
-            groupId = targetId;
+            groupId = targetId ?? null;
 
             if (user.role !== 'ADMIN') {
                 const isMember = db.prepare(`
@@ -103,7 +103,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             user.id,
             text,
             targetType,
-            targetType === 'PRIVATE' ? receiverId : (targetType === 'GROUP' ? groupId : null),
+            (targetType === 'PRIVATE' ? receiverId : (targetType === 'GROUP' ? groupId : null)) as number | null,
             isReadOnce ? 1 : 0,
             replyToId || null,
             attachment || null
@@ -176,7 +176,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             
 
         } else if (targetType === 'PRIVATE') {
-            chatStore.broadcast({ type: 'message', message: messagePayload }, [user.id, receiverId]);
+            chatStore.broadcast({ type: 'message', message: messagePayload }, [user.id, receiverId as number]);
         } else if (targetType === 'GROUP') {
             const members = db.prepare(`SELECT userId FROM chat_group_members WHERE groupId = ?`).all(groupId) as { userId: number }[];
             const memberIds = members.map(m => m.userId);
