@@ -20,9 +20,9 @@
 
     function groupReactions(reactions: Record<string, string[]> | undefined) {
         if (!reactions) return {};
-        // The format is already Record<string, string[]> from the DB but the old code grouped it.
-        // Wait, the reactions are usually an array of objects if from DB, but we typed it as Record<string, string[]> in domain.ts. 
-        // Let's assume it's already grouped or handle both.
+        /** The format is already Record<string, string[]> from the DB but the old code grouped it. */
+        /** Wait, the reactions are usually an array of objects if from DB, but we typed it as Record<string, string[]> in domain.ts. */
+        /** Let's assume it's already grouped or handle both. */
         if (Array.isArray(reactions)) {
             return reactions.reduce((acc, r) => {
                 if (!acc[r.emoji]) acc[r.emoji] = [];
@@ -117,6 +117,9 @@
         {#if msg.senderId === currentUser?.id && (!msg.isReadOnce || msg.read)}
             <button class="mini-btn edit-btn" title="Edit Message" on:click={() => dispatch('edit', msg)}>{$dictionary[$locale].CHAT_BTN_EDIT}</button>
         {/if}
+        {#if currentUser?.role === 'ADMIN'}
+            <button class="mini-btn censor-btn" title="Censor Message" on:click={() => dispatch('censor', msg.id)}>[ CENSOR ]</button>
+        {/if}
         {#if msg.senderId === currentUser?.id || currentUser?.role === 'ADMIN'}
             <button class="mini-btn delete-btn" title="Delete Message" on:click={() => dispatch('delete', msg.id)}>{$dictionary[$locale].CHAT_BTN_DELETE}</button>
         {/if}
@@ -155,6 +158,7 @@
     .message-actions { opacity: 0; transition: opacity 0.2s; display: flex; gap: 5px; margin-left: auto; }
     .mini-btn { background: transparent; border: none; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: bold; }
     .edit-btn { color: #ffaa00; } .edit-btn:hover { text-shadow: 0 0 8px #ffaa00; }
+    .censor-btn { color: #ffaa00; } .censor-btn:hover { text-shadow: 0 0 8px #ffaa00; }
     .delete-btn { color: #ff3333; } .delete-btn:hover { text-shadow: 0 0 8px #ff3333; }
     .reply-btn { color: var(--main-color, #00ffcc); } .reply-btn:hover { text-shadow: 0 0 8px var(--main-color, #00ffcc); }
     

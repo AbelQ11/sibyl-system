@@ -146,7 +146,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         }
 
         const messagePayload = {
-            id: messageId,
+            id: Number(messageId),
             targetType,
             senderId: user.id,
             senderName: user.username,

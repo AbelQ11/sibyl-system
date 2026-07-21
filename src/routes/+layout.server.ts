@@ -32,6 +32,9 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
                     console.log(`[SELF-HEALING ID] Regenerated valid ID ${citizenId} for user ${user.username}`);
                 }
 
+                const statsCheck = db.prepare(`SELECT id FROM userStats WHERE userId = ? LIMIT 1`).get(user.id);
+                const hasScanned = !!statsCheck || user.role === 'ADMIN';
+
                 return {
                     adminAccountId,
                     user: {
@@ -47,7 +50,8 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
                         credits: user.credits || 0,
                         interface_theme: user.interface_theme || 'theme-default',
                         pointer_skin: user.pointer_skin || null
-                    }
+                    },
+                    hasScanned
                 };
             }
         } catch (e) {
@@ -55,5 +59,5 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
         }
     }
 
-    return { adminAccountId, user: null };
+    return { adminAccountId, user: null, hasScanned: false };
 };

@@ -31,10 +31,13 @@ import { migration as m014 } from './db/migrations/014_seed_admin';
 import { migration as m015 } from './db/migrations/015_seed_cosmetics';
 import { migration as m016 } from './db/migrations/016_sessions_table';
 import { migration as m017 } from './db/migrations/017_promo_usage';
+import { migration as m018 } from './db/migrations/018_posts_table';
+import { migration as m019 } from './db/migrations/019_post_interactions';
+import { migration as m020 } from './db/migrations/020_post_images';
 
 runMigrations([
     m001, m002, m003, m004, m005, m006, m007, m008,
-    m009, m010, m011, m012, m013, m014, m015, m016, m017
+    m009, m010, m011, m012, m013, m014, m015, m016, m017, m018, m019, m020
 ]);
 
 runDevSeeds();

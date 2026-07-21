@@ -398,6 +398,17 @@
         } catch(e){}
     }
 
+    async function censorMessage(id: number) {
+        if (!confirm("Are you sure you want to censor this message?")) return;
+        try {
+            await fetch('/api/chat/censor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messageId: id })
+            });
+        } catch(e){}
+    }
+
     function startEdit(msg: any) {
         editingMessageId = msg.id;
         inputText = msg.text;
@@ -517,6 +528,7 @@
                     on:react={(e) => toggleReaction(e.detail.id, e.detail.emoji)}
                     on:reply={(e) => replyingToMessage = e.detail}
                     on:edit={(e) => startEdit(e.detail)}
+                    on:censor={(e) => censorMessage(e.detail)}
                     on:delete={(e) => deleteMessage(e.detail)}
                 />
             {/each}
@@ -549,7 +561,7 @@
         color: var(--main-color, #00ffcc);
     }
 
-    /* SIDEBAR */
+    /** SIDEBAR */
     .sidebar {
         width: 250px;
         border-right: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
@@ -580,7 +592,7 @@
     .channel-btn.active { background: var(--main-color, #00ffcc); color: #000; font-weight: bold; }
     .empty-list { font-size: 0.8rem; color: #666; padding-left: 10px; font-style: italic; }
 
-    /* CHAT CONTAINER */
+    /** CHAT CONTAINER */
     .chat-container {
         flex: 1;
         display: flex;

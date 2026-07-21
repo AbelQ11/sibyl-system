@@ -14,7 +14,7 @@
     }
 
     $: if (typeof window !== 'undefined' && !data?.user) {
-        const publicPaths = ['/auth', '/register', '/privacy', '/terms', '/invite', '/auth/mock-discord'];
+        const publicPaths = ['/auth', '/register', '/privacy', '/terms', '/legal', '/invite', '/auth/mock-discord'];
         const isPublicPath = publicPaths.includes($page.url.pathname) || $page.url.pathname.startsWith('/auth/callback');
 
         if (!isPublicPath) {
@@ -68,20 +68,16 @@
                 <a href="/chat" class="nav-btn-link">
                     {$dictionary[$locale].NAV_CHAT}
                 </a>
-                <a href="/privacy" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_PRIVACY}
+                <a href="/legal" class="nav-btn-link">
+                    {$dictionary[$locale].NAV_LEGAL || '[ LEGAL ]'}
                 </a>
-                <a href="/terms" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_TERMS}
-                </a>
-                <a href="https://docs.google.com/forms/d/e/1FAIpQLSfxIDPeKN25x_OlKqlWfg1S_o2Cqqhyi3YFq0BBGhdMgaC3Ow/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_SUGGESTIONS}
-                </a>
-                <a href="https://ko-fi.com/kiliotsu" target="_blank" rel="noopener noreferrer" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_KOFI}
-                </a>
-                <a href="https://github.com/AbelQ11/sibyl-system" target="_blank" rel="noopener noreferrer" class="nav-btn-link">
-                    {$dictionary[$locale].NAV_GITHUB}
+                {#if data?.hasScanned}
+                    <a href="/feed" class="nav-btn-link">
+                        {$dictionary[$locale].NAV_FEED || '[ FEED ]'}
+                    </a>
+                {/if}
+                <a href="/links" class="nav-btn-link">
+                    [ {$dictionary[$locale].NAV_LINKS || 'LINKS'} ]
                 </a>
                 <a href="/invite" class="nav-btn-link">
                     {$dictionary[$locale].NAV_INVITE}
@@ -125,20 +121,16 @@
                 <a href="/chat" class="burger-link" on:click={closeMenu}>
                     {$dictionary[$locale].NAV_CHAT}
                 </a>
-                <a href="/privacy" class="burger-link" on:click={closeMenu}>
-                    {$dictionary[$locale].NAV_PRIVACY}
+                <a href="/legal" class="burger-link" on:click={closeMenu}>
+                    {$dictionary[$locale].NAV_LEGAL || '[ LEGAL ]'}
                 </a>
-                <a href="/terms" class="burger-link">
-                    {$dictionary[$locale].NAV_TERMS}
-                </a>
-                <a href="https://docs.google.com/forms/d/e/1FAIpQLSfxIDPeKN25x_OlKqlWfg1S_o2Cqqhyi3YFq0BBGhdMgaC3Ow/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer" class="burger-link">
-                    {$dictionary[$locale].NAV_SUGGESTIONS}
-                </a>
-                <a href="https://ko-fi.com/kiliotsu" target="_blank" rel="noopener noreferrer" class="burger-link">
-                    {$dictionary[$locale].NAV_KOFI}
-                </a>
-                <a href="https://github.com/AbelQ11/sibyl-system" target="_blank" rel="noopener noreferrer" class="burger-link">
-                    {$dictionary[$locale].NAV_GITHUB}
+                {#if data?.hasScanned}
+                    <a href="/feed" class="burger-link" on:click={closeMenu}>
+                        {$dictionary[$locale].NAV_FEED || '[ FEED ]'}
+                    </a>
+                {/if}
+                <a href="/links" class="burger-link" on:click={closeMenu}>
+                    [ {$dictionary[$locale].NAV_LINKS || 'LINKS'} ]
                 </a>
                 <a href="/invite" class="burger-link">
                     {$dictionary[$locale].NAV_INVITE}

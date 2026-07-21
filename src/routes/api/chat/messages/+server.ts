@@ -41,7 +41,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
                OR m.receiverId = ? 
                OR m.senderId = ?
                OR m.groupId IN (SELECT groupId FROM chat_group_members WHERE userId = ?)
-            ORDER BY m.created_at ASC
+            ORDER BY m.created_at DESC
             LIMIT 200
         `;
 
@@ -66,7 +66,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
                 LEFT JOIN chat_groups g ON m.groupId = g.id
                 LEFT JOIN chat_messages parent ON m.replyToId = parent.id
                 LEFT JOIN users parent_u ON parent.senderId = parent_u.id
-                ORDER BY m.created_at ASC
+                ORDER BY m.created_at DESC
                 LIMIT 200
             `;
         }
@@ -77,6 +77,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
         } else {
             rawMessages = db.prepare(messagesQuery).all(user.id, user.id, user.id) as any[];
         }
+
+        rawMessages.reverse();
 
         const messageIds = rawMessages.map(m => m.id);
         let reactionsByMessage: Record<number, any[]> = {};

@@ -59,7 +59,15 @@ The SIBYL network enables citizens to establish compliance synchronization chann
   * **Automated Empathy AI Moderation**: Public transmissions are scanned via a Multi-Provider AI Daemon (Gemini & OpenAI fallback). Toxic communications are permanently redacted and immediate CC penalties are administered to non-compliant citizens.
 * **Advanced Privacy**: Users can restrict visibility of their profile to `PUBLIC`, `FRIENDS`, `GROUP ONLY`, `FRIENDS AND GROUP ONLY`, or `PRIVATE`.
 
-### 3. Cosmetics Shop & Customization
+### 3. Public Feed & Censorship Engine
+* **Global Broadcasts**: A Twitter-like timeline where citizens can share thoughts with the network.
+* **Likes & Comments**: Users can interact with broadcasts, fostering network engagement.
+* **Sibyl Censorship Filter**:
+  * **CC < 100**: Transmissions pass unrestricted.
+  * **100 ≤ CC ≤ 300**: Stress-inducing words are instantly redacted (`████`). The system also randomly blanks out words to simulate mental clouding and instability.
+  * **CC > 300**: The Lethal Eliminator threshold revokes all posting and commenting privileges entirely.
+
+### 4. Cosmetics Shop & Customization
 * **Dynamic Cosmetics**: Citizens can earn credits by chatting and use them in the internal Shop to unlock custom `avatar_borders`, `name_effects`, `interface_themes`, and `pointer_skins`.
 * **Global Pointers**: Custom cyberpunk-themed SVG pointers (e.g. Lethal Eliminator, Dominator Sight, Neural Uplink) override default browser cursors.
 * **Real-time Injection**: Equipped cosmetics dynamically inject database-stored CSS rules globally into the application layout via a dedicated CSS endpoint.

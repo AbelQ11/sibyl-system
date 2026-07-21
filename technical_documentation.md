@@ -5,7 +5,7 @@ The SIBYL System is built on **SvelteKit 2** (using Svelte 5) and leverages **be
 
 ### 1. Data Persistence Layer (`better-sqlite3`)
 The application eschews ORMs like Prisma in favor of direct SQLite binding via `better-sqlite3`. 
-- **Initialization**: Database tables (`users`, `userStats`, `friend_requests`, `chat_messages`, `chat_groups`) are initialized dynamically via `CREATE TABLE IF NOT EXISTS` pragmas inside `src/lib/server/db.ts` on server boot.
+- **Initialization**: Database tables (`users`, `userStats`, `friend_requests`, `chat_messages`, `chat_groups`, `posts`, `post_likes`, `post_comments`) are initialized dynamically via `CREATE TABLE IF NOT EXISTS` pragmas inside `src/lib/server/db.ts` on server boot.
 - **Performance**: Because Node.js is single-threaded, `better-sqlite3` runs synchronously, providing extremely fast read/write speeds without async overhead, which is critical for real-time telemetry logging.
 
 ### 2. State Management & Reactivity
