@@ -1,6 +1,6 @@
 <script lang="ts">
     import { dictionary, locale } from '$lib/i18n';
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import { fade } from 'svelte/transition';
@@ -22,6 +22,8 @@
     let messages: (ChatMessage & { read?: boolean; replyToMessage?: ChatMessage })[] = [];
     let groups: ChatGroup[] = [];
     let friends: UserProfile[] = [];
+    let hasMoreMessages: boolean = false;
+    let loadingMore: boolean = false;
 
     let inputText = '';
     let isReadOnce = false;
@@ -213,6 +215,40 @@
         scrollToBottom();
     }
 
+    async function loadMoreMessages() {
+        if (loadingMore || !hasMoreMessages || messages.length === 0) return;
+        const oldestId = Math.min(...messages.map(m => m.id));
+        if (!oldestId || oldestId <= 0) return;
+
+        loadingMore = true;
+        const chatBox = document.querySelector('.chat-history');
+        const previousScrollHeight = chatBox ? chatBox.scrollHeight : 0;
+
+        try {
+            const res = await fetch(`/api/chat/messages?before=${oldestId}`);
+            if (res.ok) {
+                const d = await res.json();
+                const olderMessages = d.messages || [];
+                hasMoreMessages = Boolean(d.hasMore);
+
+                if (olderMessages.length > 0) {
+                    const existingIds = new Set(messages.map(m => m.id));
+                    const newUniqueOlder = olderMessages.filter((m: any) => !existingIds.has(m.id));
+                    messages = [...newUniqueOlder, ...messages];
+
+                    await tick();
+                    if (chatBox) {
+                        chatBox.scrollTop = chatBox.scrollHeight - previousScrollHeight;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load older messages", e);
+        } finally {
+            loadingMore = false;
+        }
+    }
+
     onMount(async () => {
         /** Fetch historical messages */
         try {
@@ -220,6 +256,7 @@
             if (res.ok) {
                 const d = await res.json();
                 messages = d.messages || [];
+                hasMoreMessages = Boolean(d.hasMore);
                 scrollToBottom();
             }
         } catch (e) {
@@ -520,6 +557,18 @@
         </div>
 
         <div class="chat-history">
+            {#if hasMoreMessages}
+                <div class="load-more-container">
+                    <button 
+                        class="load-more-btn" 
+                        disabled={loadingMore} 
+                        on:click={loadMoreMessages}
+                    >
+                        {loadingMore ? $dictionary[$locale].CHAT_LOADING_MORE : $dictionary[$locale].CHAT_SEE_MORE}
+                    </button>
+                </div>
+            {/if}
+
             {#each visibleMessages as msg (msg.id)}
                 <MessageBubble 
                     {msg} 
@@ -532,7 +581,7 @@
                     on:delete={(e) => deleteMessage(e.detail)}
                 />
             {/each}
-    </div>
+        </div>
 
         <ChatInput
             bind:replyingToMessage
@@ -840,4 +889,34 @@
     }
     
     .char-count { text-align: right; font-size: 0.75rem; margin-top: 8px; opacity: 0.7; }
+
+    .load-more-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 15px;
+        width: 100%;
+    }
+
+    .load-more-btn {
+        background: transparent;
+        border: 1px dashed var(--main-color, #00ffcc);
+        color: var(--main-color, #00ffcc);
+        padding: 8px 16px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        letter-spacing: 1px;
+    }
+
+    .load-more-btn:hover:not(:disabled) {
+        background: var(--border-color, rgba(0, 255, 204, 0.15));
+        box-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.4));
+        border-style: solid;
+    }
+
+    .load-more-btn:disabled {
+        opacity: 0.5;
+        cursor: wait;
+    }
 </style>

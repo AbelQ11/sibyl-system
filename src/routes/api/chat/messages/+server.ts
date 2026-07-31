@@ -11,14 +11,19 @@ import type { RequestHandler } from './$types';
  * @param cookies - The request cookies used for session authentication.
  * @returns JSON response containing up to 200 formatted chat messages.
  */
-export const GET: RequestHandler = async ({ cookies }) => {
+export const GET: RequestHandler = async ({ cookies, url }) => {
     const user = getAuthUser(cookies.get('session')) as any;
     if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
-    try {
-        
+    const beforeParam = url.searchParams.get('before');
+    const limitParam = url.searchParams.get('limit');
+    
+    const beforeId = beforeParam ? parseInt(beforeParam, 10) : null;
+    const fetchLimit = limitParam ? Math.min(Math.max(parseInt(limitParam, 10) || 200, 1), 500) : 200;
 
-        let messagesQuery = `
+    try {
+        let params: any[] = [];
+        const baseQuery = `
             SELECT m.*, 
                    u.username as senderName, 
                    u.avatar as senderAvatar, 
@@ -37,45 +42,37 @@ export const GET: RequestHandler = async ({ cookies }) => {
             LEFT JOIN chat_groups g ON m.groupId = g.id
             LEFT JOIN chat_messages parent ON m.replyToId = parent.id
             LEFT JOIN users parent_u ON parent.senderId = parent_u.id
-            WHERE (m.groupId IS NULL AND m.receiverId IS NULL) 
-               OR m.receiverId = ? 
-               OR m.senderId = ?
-               OR m.groupId IN (SELECT groupId FROM chat_group_members WHERE userId = ?)
-            ORDER BY m.created_at DESC
-            LIMIT 200
         `;
 
-        if (user.role === 'ADMIN') {
-
-            messagesQuery = `
-                SELECT m.*, 
-                       u.username as senderName, 
-                       u.avatar as senderAvatar, 
-                       u.role as senderRole,
-                       (SELECT cc FROM userStats WHERE userId = u.id ORDER BY created_at DESC LIMIT 1) as senderCC,
-                       g.name as groupName,
-                       (SELECT cg.name FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupName,
-                       (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId,
-                       (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'avatar_border' AND uc.equipped = 1 LIMIT 1) as senderAvatarBorder,
-                       (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'name_effect' AND uc.equipped = 1 LIMIT 1) as senderNameEffect,
-                       parent.text as parentText,
-                       parent_u.username as parentSenderName,
-                       (SELECT AVG(cc) FROM userStats WHERE userId = parent_u.id) as parentAvgCC
-                FROM chat_messages m
-                JOIN users u ON m.senderId = u.id
-                LEFT JOIN chat_groups g ON m.groupId = g.id
-                LEFT JOIN chat_messages parent ON m.replyToId = parent.id
-                LEFT JOIN users parent_u ON parent.senderId = parent_u.id
-                ORDER BY m.created_at DESC
-                LIMIT 200
+        let whereClause = ``;
+        if (user.role !== 'ADMIN') {
+            whereClause = `
+                WHERE ((m.groupId IS NULL AND m.receiverId IS NULL) 
+                   OR m.receiverId = ? 
+                   OR m.senderId = ?
+                   OR m.groupId IN (SELECT groupId FROM chat_group_members WHERE userId = ?))
             `;
+            params.push(user.id, user.id, user.id);
         }
 
-        let rawMessages;
-        if (user.role === 'ADMIN') {
-            rawMessages = db.prepare(messagesQuery).all() as any[];
-        } else {
-            rawMessages = db.prepare(messagesQuery).all(user.id, user.id, user.id) as any[];
+        if (beforeId && !isNaN(beforeId)) {
+            if (whereClause) {
+                whereClause += ` AND m.id < ?`;
+            } else {
+                whereClause = ` WHERE m.id < ?`;
+            }
+            params.push(beforeId);
+        }
+
+        params.push(fetchLimit + 1);
+
+        const fullQuery = `${baseQuery} ${whereClause} ORDER BY m.created_at DESC, m.id DESC LIMIT ?`;
+        const rawMessages = db.prepare(fullQuery).all(...params) as any[];
+
+        let hasMore = false;
+        if (rawMessages.length > fetchLimit) {
+            hasMore = true;
+            rawMessages.pop();
         }
 
         rawMessages.reverse();
@@ -90,7 +87,6 @@ export const GET: RequestHandler = async ({ cookies }) => {
                 reactionsByMessage[r.messageId].push({ emoji: r.emoji, userId: r.userId });
             }
         }
-
 
         const formattedMessages = rawMessages.map(m => {
             let replyToMessage = null;
@@ -126,7 +122,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
             };
         });
 
-        return json({ messages: formattedMessages });
+        return json({ messages: formattedMessages, hasMore });
 
     } catch (e: any) {
         console.error("Error fetching messages:", e);

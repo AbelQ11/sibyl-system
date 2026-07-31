@@ -45,7 +45,8 @@ async function queryGemini(prompt: string, key: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }]
-        })
+        }),
+        signal: AbortSignal.timeout(10000)
     });
 
     const data = await response.json();
@@ -64,7 +65,8 @@ async function queryOpenAI(prompt: string, key: string) {
         body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }]
-        })
+        }),
+        signal: AbortSignal.timeout(10000)
     });
 
     const data = await response.json();

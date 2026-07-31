@@ -54,13 +54,18 @@ export function requireRole(user: User, role: 'ADMIN' | 'INSPECTOR'): void {
 export function generateCitizenId(): string {
     let citizenId = '';
     let isUnique = false;
-    while (!isUnique) {
+    let attempts = 0;
+    while (!isUnique && attempts < 100) {
+        attempts++;
         let numStr = '';
         for (let i = 0; i < 8; i++) numStr += Math.floor(Math.random() * 10).toString();
         citizenId = `SIB-${numStr}`;
         if (!db.prepare('SELECT id FROM users WHERE citizen_id = ?').get(citizenId)) {
             isUnique = true;
         }
+    }
+    if (!isUnique) {
+        return `SIB-${Date.now().toString().slice(-8)}`;
     }
     return citizenId;
 }

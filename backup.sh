@@ -20,6 +20,7 @@ BACKUP_FILE="$BACKUP_DIR/citizen_$TIMESTAMP.db"
 if [ -f "$DB_FILE" ]; then
     # Try using sqlite3 for a clean online backup
     if command -v sqlite3 >/dev/null 2>&1; then
+        sqlite3 "$DB_FILE" "PRAGMA wal_checkpoint(TRUNCATE);" 2>/dev/null
         if sqlite3 "$DB_FILE" ".backup '$BACKUP_FILE'" 2>/dev/null; then
             echo "SQLite backup created successfully at $BACKUP_FILE"
             exit 0

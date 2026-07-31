@@ -32,6 +32,18 @@
         }
         return reactions;
     }
+    function formatTimestamp(dateStr: string, loc: string) {
+        if (!dateStr) return '';
+        const isoStr = dateStr.replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z');
+        const date = new Date(isoStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleString(loc || [], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
 </script>
 
 <div class="message-row {msg.senderRole === 'ADMIN' ? 'admin-msg' : ''}" transition:fade>
@@ -57,7 +69,7 @@
                 <span class="admin-badge">{$dictionary[$locale].CHAT_ADMIN_BADGE}</span>
             {/if}
             <span class="msg-timestamp">
-                {new Date(msg.created_at.replace(' ', 'T') + (msg.created_at.includes('Z') ? '' : 'Z')).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                {formatTimestamp(msg.created_at, $locale)}
                 {#if msg.is_edited}
                     <span class="edited-tag">{$dictionary[$locale].CHAT_EDITED}</span>
                 {/if}

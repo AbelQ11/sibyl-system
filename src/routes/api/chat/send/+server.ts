@@ -217,9 +217,20 @@ async function moderateMessage(messageId: number, text: string, userId: number) 
         jsonStr = jsonStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '');
     }
     
-    const parsed = JSON.parse(jsonStr);
+    let parsed: any;
+    try {
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+        } else {
+            parsed = JSON.parse(jsonStr);
+        }
+    } catch (parseError) {
+        console.error("Failed to parse moderation AI response JSON:", parseError);
+        return;
+    }
 
-    if (parsed.hasInfraction || parsed.isViolent) {
+    if (parsed && (parsed.hasInfraction || parsed.isViolent)) {
         const penalty = (parsed.severityScore || 5) * 5;
         const stats = db.prepare('SELECT cc FROM userStats WHERE userId = ? ORDER BY id DESC LIMIT 1').get(userId) as any;
         const newCC = (stats ? stats.cc : 0) + penalty;

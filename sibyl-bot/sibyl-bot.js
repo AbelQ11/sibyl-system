@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +16,15 @@ const publicOrigin = process.env.PUBLIC_ORIGIN || 'https://sibyl-system.mooo.com
 if (!token || token === 'your_bot_token_here') {
     console.error('ERROR: Set your DISCORD_BOT_TOKEN in the parent .env file first!');
     process.exit(1);
+}
+
+async function safeFetchJson(response) {
+    const text = await response.text();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        throw new Error(`Server error (${response.status}): ${text.slice(0, 120)}`);
+    }
 }
 
 const client = new Client({ intents: [
@@ -52,7 +61,7 @@ client.on('interactionCreate', async interaction => {
                 }
             });
 
-            const data = await response.json();
+            const data = await safeFetchJson(response);
 
             if (!response.ok) {
                 let errorTitle = '[SIBYL SYSTEM - CLASSIFIED RECORD]';
@@ -126,7 +135,7 @@ client.on('interactionCreate', async interaction => {
                 }
             });
 
-            const data = await response.json();
+            const data = await safeFetchJson(response);
 
             if (!response.ok) {
                 let errorTitle = '[SIBYL SYSTEM - CLASSIFIED RECORD]';
@@ -346,7 +355,7 @@ client.on('interactionCreate', async interaction => {
             const response = await fetch(endpoint, {
                 headers: { 'Authorization': `Bearer ${botSecret}` }
             });
-            const data = await response.json();
+            const data = await safeFetchJson(response);
             if (!response.ok) throw new Error(data.error);
 
             let color = 0x00ffcc;
@@ -371,13 +380,13 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply('Error checking SIBYL status.');
         }
     } else if (commandName === 'history') {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         try {
             const endpoint = `${publicOrigin.replace(/\/$/, '')}/api/discord/history?discordId=${interaction.user.id}`;
             const response = await fetch(endpoint, {
                 headers: { 'Authorization': `Bearer ${botSecret}` }
             });
-            const data = await response.json();
+            const data = await safeFetchJson(response);
             
             if (response.status === 404 && data.error === 'UNLINKED') {
                 return await interaction.editReply('Your Discord account is not linked to any SIBYL profile. Please link it in your website account settings.');
@@ -410,7 +419,7 @@ client.on('interactionCreate', async interaction => {
             const response = await fetch(endpoint, {
                 headers: { 'Authorization': `Bearer ${botSecret}` }
             });
-            const data = await response.json();
+            const data = await safeFetchJson(response);
             
             if (response.status === 404 && data.error === 'NOT_FOUND') {
                 return await interaction.editReply(`Division \`${query}\` not found in the SIBYL registry.`);
