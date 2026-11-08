@@ -7,13 +7,14 @@ import {
 	normalizeEmail
 } from '$lib/server/auth';
 import { clientIp, consumeRateLimit } from '$lib/server/rateLimit';
+import { issueEmailVerification } from '$lib/server/emailVerification';
 import bcrypt from 'bcryptjs';
 import { fail, redirect } from '@sveltejs/kit';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, cookies, url }) => {
 		const ipLimit = consumeRateLimit(`register:ip:${clientIp(request)}`, 5, 15 * 60_000);
 		if (!ipLimit.allowed) {
 			return fail(429, { error: 'RATE_LIMITED' });
@@ -72,7 +73,14 @@ export const actions = {
 
 			const token = createSession(newUserId);
 			cookies.set('session', token, getCookieOptions());
+
+			if (email) {
+				const sent = await issueEmailVerification(newUserId, email, url.origin);
+				throw redirect(303, `/account?email=${sent ? 'verification_sent' : 'verification_failed'}`);
+			}
 		} catch (e: any) {
+			// Re-throw SvelteKit redirects; only convert real registration errors.
+			if (e && typeof e === 'object' && 'status' in e && 'location' in e) throw e;
 			if (typeof e?.message === 'string' && e.message.includes('idx_users_email')) {
 				return fail(400, { error: 'AUTH_ERR_EMAIL_TAKEN' });
 			}

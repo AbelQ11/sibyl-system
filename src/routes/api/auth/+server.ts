@@ -9,6 +9,7 @@ import {
 	normalizeEmail
 } from '$lib/server/auth';
 import { createSession, deleteSession, getCookieOptions } from '$lib/server/session';
+import { issueEmailVerification } from '$lib/server/emailVerification';
 import {
 	clientIp,
 	consumeRateLimit,
@@ -38,7 +39,7 @@ function validPassword(value: unknown): value is string {
 /**
  * Handles authentication requests including user registration, login, and logout.
  */
-export async function POST({ request, cookies }) {
+export async function POST({ request, cookies, url }) {
 	let body: Record<string, unknown>;
 	try {
 		body = await request.json();
@@ -95,7 +96,19 @@ export async function POST({ request, cookies }) {
 
 			const token = createSession(newUserId);
 			cookies.set('session', token, getCookieOptions());
-			return json({ success: true, code: 'REG_OK', user: username, citizen_id: citizenId });
+
+			let emailVerificationSent = false;
+			if (email) {
+				emailVerificationSent = await issueEmailVerification(newUserId, email, url.origin);
+			}
+
+			return json({
+				success: true,
+				code: 'REG_OK',
+				user: username,
+				citizen_id: citizenId,
+				email_verification_sent: emailVerificationSent
+			});
 		} catch (e: any) {
 			if (typeof e?.message === 'string' && e.message.includes('idx_users_email')) {
 				return json({ success: false, code: 'AUTH_ERR_EMAIL_TAKEN' });
@@ -126,6 +139,14 @@ export async function POST({ request, cookies }) {
 				user: result.user.username,
 				citizen_id: result.user.citizen_id,
 				avatar: result.user.avatar || null
+			});
+		}
+
+		if (result.code === 'EMAIL_UNVERIFIED') {
+			return json({
+				success: false,
+				code: 'AUTH_ERR_EMAIL_UNVERIFIED',
+				message: 'Verify your email address before signing in with it.'
 			});
 		}
 

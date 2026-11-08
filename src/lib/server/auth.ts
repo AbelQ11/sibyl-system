@@ -16,6 +16,7 @@ export interface User {
 	bio: string;
 	credits: number;
 	email: string | null;
+	email_verified: number;
 }
 
 export interface AuthUserRow extends User {
@@ -34,7 +35,7 @@ export interface PublicUserResolution {
 }
 
 const PUBLIC_USER_COLUMNS =
-	'id, username, avatar, citizen_id, privacy, discord_username, discord_id, role, bio, credits, email';
+	'id, username, avatar, citizen_id, privacy, discord_username, discord_id, role, bio, credits, email, email_verified';
 const MAX_PASSWORD_CANDIDATES = 20;
 
 let dummyHash: string | undefined;
@@ -149,6 +150,7 @@ export function resolvePublicUser(identifier: string): PublicUserResolution {
 export type LoginResult =
 	| { code: 'OK'; user: AuthUserRow }
 	| { code: 'INVALID' }
+	| { code: 'EMAIL_UNVERIFIED' }
 	| { code: 'AMBIGUOUS'; matches: Array<Pick<AuthUserRow, 'id' | 'username' | 'citizen_id'>> };
 
 /**
@@ -166,6 +168,7 @@ export async function authenticateUser(identifier: string, password: string): Pr
 	if (value.includes('@')) {
 		const row = findUserByEmail(value);
 		if (row && (await bcrypt.compare(password, row.password))) {
+			if (!row.email_verified) return { code: 'EMAIL_UNVERIFIED' };
 			return { code: 'OK', user: row };
 		}
 		await bcrypt.compare(password, getDummyHash());

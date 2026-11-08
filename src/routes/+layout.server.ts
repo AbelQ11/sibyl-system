@@ -19,7 +19,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 			const user = db
 				.prepare(
 					`
-                SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy, u.discord_username, u.discord_id, u.role, u.bio, u.credits, u.email,
+                SELECT u.id, u.username, u.avatar, u.citizen_id, u.privacy, u.discord_username, u.discord_id, u.role, u.bio, u.credits, u.email, u.email_verified,
                        (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'interface_theme' AND uc.equipped = 1 LIMIT 1) as interface_theme,
                        (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'pointer_skin' AND uc.equipped = 1 LIMIT 1) as pointer_skin
                 FROM users u
@@ -57,6 +57,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 						bio: user.bio || '',
 						credits: user.credits || 0,
 						email: user.email || null,
+						email_verified: Boolean(user.email_verified),
 						interface_theme: user.interface_theme || 'theme-default',
 						pointer_skin: user.pointer_skin || null
 					},

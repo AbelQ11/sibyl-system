@@ -15,6 +15,13 @@
 	let showPassword = false;
 	let statusMessage = '';
 
+	$: emailNotice =
+		$page.url.searchParams.get('email') === 'verified'
+			? $dictionary[$locale].AUTH_MSG_EMAIL_VERIFIED
+			: $page.url.searchParams.get('email') === 'invalid'
+				? $dictionary[$locale].AUTH_MSG_EMAIL_INVALID
+				: '';
+
 	async function handleAuth(action: 'LOGIN' | 'REGISTER') {
 		statusMessage = $dictionary[$locale].AUTH_MSG_CONNECTING;
 
@@ -41,7 +48,9 @@
 				appMode.set('INITIAL');
 
 				const redirectTo =
-					action === 'REGISTER' ? '/account' : $page.url.searchParams.get('from') || '/';
+					action === 'REGISTER'
+						? `/account?email=${data.email_verification_sent ? 'verification_sent' : 'verification_failed'}`
+						: $page.url.searchParams.get('from') || '/';
 				window.location.href = redirectTo;
 			} else {
 				const message =
@@ -80,6 +89,16 @@
 	<div class="crt-overlay"></div>
 	<div class="auth-card">
 		<h1 class="header">{$dictionary[$locale].AUTH_PAGE_TITLE}</h1>
+
+		{#if emailNotice}
+			<div
+				class="status-msg"
+				class:success={$page.url.searchParams.get('email') === 'verified'}
+				style="height:auto; margin-bottom:15px;"
+			>
+				{emailNotice}
+			</div>
+		{/if}
 
 		{#if mode === 'PROMPT'}
 			<div class="prompt-text">{$dictionary[$locale].AUTH_PROMPT_QUESTION}</div>

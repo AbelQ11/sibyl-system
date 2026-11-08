@@ -46,6 +46,28 @@
 		}
 	}
 
+	let resendingVerification = false;
+	async function resendVerification() {
+		if (resendingVerification) return;
+		resendingVerification = true;
+		try {
+			const res = await fetch('/api/auth/resend-verification', { method: 'POST' });
+			const data = await res.json().catch(() => ({}));
+			if (res.ok) {
+				settingsSuccess = true;
+				settingsMessage = $dictionary[$locale].ACC_MSG_VERIFICATION_SENT;
+			} else {
+				settingsSuccess = false;
+				settingsMessage = data.error || $dictionary[$locale].ACC_MSG_VERIFICATION_FAILED;
+			}
+		} catch {
+			settingsSuccess = false;
+			settingsMessage = $dictionary[$locale].ACC_MSG_VERIFICATION_FAILED;
+		} finally {
+			resendingVerification = false;
+		}
+	}
+
 	function resolveThemeColor(host: Element | null, name: string, fallback: string): string {
 		if (!host) return fallback;
 		const value = getComputedStyle(host).getPropertyValue(name).trim();
@@ -320,13 +342,30 @@
 				'ERROR: THIS DISCORD ACCOUNT IS ALREADY LINKED TO ANOTHER CITIZEN.';
 		}
 
+		const emailStatus = params.get('email');
+		if (emailStatus === 'verified') {
+			settingsSuccess = true;
+			settingsMessage = $dictionary[$locale].ACC_MSG_EMAIL_VERIFIED;
+		} else if (emailStatus === 'invalid') {
+			settingsSuccess = false;
+			settingsMessage = $dictionary[$locale].ACC_MSG_EMAIL_INVALID;
+		} else if (emailStatus === 'verification_sent') {
+			settingsSuccess = true;
+			settingsMessage = $dictionary[$locale].ACC_MSG_VERIFICATION_SENT;
+		} else if (emailStatus === 'verification_failed') {
+			settingsSuccess = false;
+			settingsMessage = $dictionary[$locale].ACC_MSG_VERIFICATION_FAILED;
+		}
+
 		if (!$currentUser) {
 			goto('/auth');
 			return;
 		}
 
 		try {
-			const res = await fetch(`/api/stats?userId=${$currentUser}`);
+			const res = await fetch(
+				`/api/stats?identifier=${encodeURIComponent(data?.user?.citizen_id || $currentUser || '')}`
+			);
 			if (res.ok) {
 				const statData = await res.json();
 				firstCC = statData.first_cc || 0;
@@ -521,6 +560,26 @@
 					autocomplete="email"
 				/>
 				<p class="field-hint">{$dictionary[$locale].ACC_EMAIL_HINT}</p>
+
+				{#if data?.user?.email}
+					<div class="email-verification-status" class:verified={data.user.email_verified}>
+						<span
+							>{data.user.email_verified
+								? $dictionary[$locale].ACC_EMAIL_STATUS_VERIFIED
+								: $dictionary[$locale].ACC_EMAIL_STATUS_UNVERIFIED}</span
+						>
+						{#if !data.user.email_verified}
+							<button
+								type="button"
+								class="copy-btn"
+								on:click={resendVerification}
+								disabled={resendingVerification}
+							>
+								{resendingVerification ? '...' : $dictionary[$locale].ACC_BTN_RESEND_VERIFICATION}
+							</button>
+						{/if}
+					</div>
+				{/if}
 
 				<label for="privacy">{$dictionary[$locale].ACC_LABEL_PRIVACY}</label>
 				<select id="privacy" name="privacy" bind:value={privacySetting} class="privacy-select">
@@ -911,6 +970,21 @@
 	}
 	.privacy-select:focus {
 		border-color: var(--main-color, #00ffcc);
+	}
+	.email-verification-status {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		margin: -10px 0 20px 0;
+		padding: 8px 10px;
+		border: 1px dashed rgba(255, 170, 0, 0.5);
+		color: #ffaa00;
+		font-size: 0.75rem;
+	}
+	.email-verification-status.verified {
+		border-color: var(--main-glow, rgba(0, 255, 204, 0.4));
+		color: var(--main-color, #00ffcc);
 	}
 	.field-hint {
 		font-size: 0.75rem;

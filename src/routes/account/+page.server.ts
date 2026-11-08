@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { getAuthUser, isReservedUsername, normalizeEmail } from '$lib/server/auth';
 import { createSession, deleteSessionsForUser, getCookieOptions } from '$lib/server/session';
+import { issueEmailVerification, resetEmailVerification } from '$lib/server/emailVerification';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import type { Actions } from './$types';
@@ -33,7 +34,7 @@ const UpdateProfileSchema = z.object({
 });
 
 export const actions: Actions = {
-	updateProfile: async ({ request, cookies }) => {
+	updateProfile: async ({ request, cookies, url }) => {
 		const user = getAuthUser(cookies.get('session'));
 		if (!user) {
 			return fail(401, { success: false, message: 'UNAUTHORIZED' });
@@ -80,12 +81,27 @@ export const actions: Actions = {
 			}
 		}
 
+		const emailChanged = (email || null) !== (user.email || null);
+		let verificationMessage = 'ACC_MSG_UPDATE_SUCCESS';
+
+		if (emailChanged && !email) {
+			resetEmailVerification(user.id);
+		}
+
 		try {
 			if (password && password.trim() !== '') {
 				const hash = await bcrypt.hash(password, 12);
 				db.prepare(
-					'UPDATE users SET username = ?, password = ?, privacy = ?, bio = ?, email = ? WHERE id = ?'
-				).run(username, hash, privacy, bio, email || null, user.id);
+					'UPDATE users SET username = ?, password = ?, privacy = ?, bio = ?, email = ?, email_verified = ? WHERE id = ?'
+				).run(
+					username,
+					hash,
+					privacy,
+					bio,
+					email || null,
+					emailChanged ? 0 : user.email_verified,
+					user.id
+				);
 
 				// Invalidate every session created with the old password, then
 				// issue a fresh one for this browser.
@@ -94,11 +110,25 @@ export const actions: Actions = {
 				cookies.set('session', token, getCookieOptions());
 			} else {
 				db.prepare(
-					'UPDATE users SET username = ?, privacy = ?, bio = ?, email = ? WHERE id = ?'
-				).run(username, privacy, bio, email || null, user.id);
+					'UPDATE users SET username = ?, privacy = ?, bio = ?, email = ?, email_verified = ? WHERE id = ?'
+				).run(
+					username,
+					privacy,
+					bio,
+					email || null,
+					emailChanged ? 0 : user.email_verified,
+					user.id
+				);
 			}
 
-			return { success: true, message: 'ACC_MSG_UPDATE_SUCCESS' };
+			if (emailChanged && email) {
+				const sent = await issueEmailVerification(user.id, email, url.origin);
+				verificationMessage = sent ? 'ACC_MSG_VERIFICATION_SENT' : 'ACC_MSG_VERIFICATION_FAILED';
+			} else if (emailChanged && !email) {
+				verificationMessage = 'ACC_MSG_EMAIL_REMOVED';
+			}
+
+			return { success: true, message: verificationMessage };
 		} catch (e: any) {
 			console.error('Failed to update profile:', e?.message);
 			if (typeof e?.message === 'string' && e.message.includes('idx_users_email')) {

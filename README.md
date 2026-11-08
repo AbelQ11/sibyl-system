@@ -171,6 +171,7 @@ Creates and initializes `citizen.db` automatically in the workspace root. It man
 * **Usernames are display names** and may be shared by several citizens. Public profile links use the unique **Citizen ID (`SIB-XXXXXXXX`)**.
 * **Sign-in** accepts a username or an email. For a shared username, the server checks the password against every account with that username and signs into the single matching account. If two accounts share both username and password, the user is asked to sign in with their email.
 * **Email** is optional, normalized to lowercase, and unique. It can be added or changed from the Account page and is used for email sign-in. SMTP delivery is configured through `SMTP_HOST`/`SMTP_URL`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM`.
+* **Email verification**: adding an email sends a one-time, 24-hour verification link. Email sign-in requires a verified address. Unverified users can still sign in with their username and can resend the verification email from the Account page.
 * **Mail test**: `npm run mail:test [recipient]` sends a verification message from `MAIL_FROM`.
 
 ## Session Security & Privacy Settings

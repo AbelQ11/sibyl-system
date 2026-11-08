@@ -38,6 +38,7 @@ import { migration as m021 } from './db/migrations/021_usernames_email';
 import { migration as m022 } from './db/migrations/022_query_indexes';
 import { migration as m023 } from './db/migrations/023_chat_moderation_flag';
 import { migration as m024 } from './db/migrations/024_group_requests_cascade';
+import { migration as m025 } from './db/migrations/025_email_verification';
 
 runMigrations([
 	m001,
@@ -63,7 +64,8 @@ runMigrations([
 	m021,
 	m022,
 	m023,
-	m024
+	m024,
+	m025
 ]);
 
 runDevSeeds();
