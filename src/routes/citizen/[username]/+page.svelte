@@ -1,516 +1,955 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { page } from '$app/stores';
-    import { locale, dictionary } from '$lib/i18n';
-    import { goto } from '$app/navigation';
-    import { fade } from 'svelte/transition';
-    import { currentUser } from '$lib/stores';
-    import TimeGraph from '$lib/components/TimeGraph.svelte';
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { locale, dictionary } from '$lib/i18n';
+	import { goto } from '$app/navigation';
+	import { fade } from 'svelte/transition';
+	import { currentUser } from '$lib/stores';
+	import TimeGraph from '$lib/components/TimeGraph.svelte';
 
-    const username = $page.params.username;
-    
-    let loading = true;
-    let unauthorized = false;
-    let avatar: string | null = null;
-    let citizenId = '';
-    let firstCC = 0;
-    let lastCC = 0;
-    let bio = '';
-    
-    interface ScanData {
-        cc: number;
-        type?: string;
-        created_at: string;
-    }
-    
-    let history: ScanData[] = [];
+	const identifier = $page.params.username || '';
+	let displayName = identifier;
 
-    let activeTab: 'DOSSIER' | 'SURVEILLANCE' | 'MODERATION' = 'DOSSIER';
-    let surveillanceData: any[] = [];
-    // Admin state
-    let credits = 0;
-    let ownedCosmetics: any[] = [];
-    let allCosmetics: any[] = [];
-    let selectedCosmeticToGrant: string = '';
-    let adminActionLoading = false;
-    let activeSurveillanceContact: number | null = null;
-    let isAdmin = false;
+	let loading = true;
+	let unauthorized = false;
+	let ambiguous = false;
+	let avatar: string | null = null;
+	let citizenId = '';
+	let firstCC = 0;
+	let lastCC = 0;
+	let bio = '';
 
-    onMount(async () => {
-        try {
-            const res = await fetch(`/api/stats?userId=${username}`);
-            if (res.ok) {
-                const data = await res.json();
-                firstCC = data.first_cc || 0;
-                lastCC = data.last_cc || 0;
-                avatar = data.avatar || null;
-                citizenId = data.citizen_id || 'SIB-UNKNOWN';
-                bio = data.bio || '';
-                credits = data.credits || 0;
-                history = data.history || [];
-                
-                if (data.allCosmetics) {
-                    allCosmetics = data.allCosmetics;
-                    ownedCosmetics = data.ownedCosmetics || [];
-                }
-            } else if (res.status === 403) {
-                unauthorized = true;
-            }
-            
-            /** Attempt surveillance fetch (will only succeed if admin) */
-            if (!unauthorized) {
-                const survRes = await fetch(`/api/admin/surveillance?username=${username}`);
-                if (survRes.ok) {
-                    const survData = await survRes.json();
-                    surveillanceData = survData.conversations || [];
-                    isAdmin = true;
-                }
-            }
-        } catch (err) {
-            console.error('Failed to retrieve citizen logs:', err);
-        } finally {
-            loading = false;
-        }
-    });
+	interface ScanData {
+		cc: number;
+		type?: string;
+		created_at: string;
+	}
 
-    function formatFullDate(dateStr: string) {
-        if (!dateStr) return '';
-        try {
-            const utcDateStr = dateStr.replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z');
-            const date = new Date(utcDateStr);
-            return date.toLocaleString();
-        } catch (e) {
-            return dateStr;
-        }
-    }
+	let history: ScanData[] = [];
 
-    function getThreatStatus(cc: number) {
-        if (cc >= 300) return $dictionary[$locale].TRENDS_STATUS_LETHAL;
-        if (cc > 100) return $dictionary[$locale].TRENDS_STATUS_PARALYZER;
-        return $dictionary[$locale].TRENDS_STATUS_MONITOR;
-    }
+	let activeTab: 'DOSSIER' | 'SURVEILLANCE' | 'MODERATION' = 'DOSSIER';
+	let surveillanceData: any[] = [];
+	// Admin state
+	let credits = 0;
+	let ownedCosmetics: any[] = [];
+	let allCosmetics: any[] = [];
+	let selectedCosmeticToGrant: string = '';
+	let adminActionLoading = false;
+	let activeSurveillanceContact: number | null = null;
+	let isAdmin = false;
 
-    async function adminAction(action: 'ERASE_DATA' | 'ERASE_ACCOUNT' | 'TOGGLE_PRIVACY') {
-        if (!confirm(`ADMIN PROTOCOL: Are you sure you want to execute ${action} on ${username}?`)) return;
+	onMount(async () => {
+		try {
+			const res = await fetch(`/api/stats?identifier=${encodeURIComponent(identifier)}`);
+			if (res.ok) {
+				const data = await res.json();
+				displayName = data.username || displayName;
+				firstCC = data.first_cc || 0;
+				lastCC = data.last_cc || 0;
+				avatar = data.avatar || null;
+				citizenId = data.citizen_id || 'SIB-UNKNOWN';
+				bio = data.bio || '';
+				credits = data.credits || 0;
+				history = data.history || [];
 
-        try {
-            const res = await fetch('/api/admin/user', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, action })
-            });
+				if (data.allCosmetics) {
+					allCosmetics = data.allCosmetics;
+					ownedCosmetics = data.ownedCosmetics || [];
+				}
+			} else if (res.status === 403) {
+				unauthorized = true;
+			} else if (res.status === 409) {
+				ambiguous = true;
+			}
 
-            const data = await res.json();
-            if (res.ok) {
-                alert(data.message);
-                if (action === 'ERASE_ACCOUNT') {
-                    goto('/community');
-                } else {
-                    window.location.reload();
-                }
-            } else {
-                alert(data.error);
-            }
-        } catch (e) {
-            alert("Admin action failed. Check console.");
-        }
-    }
+			/** Attempt surveillance fetch (will only succeed if admin) */
+			if (!unauthorized && !ambiguous) {
+				const survRes = await fetch(
+					`/api/admin/surveillance?identifier=${encodeURIComponent(citizenId || identifier)}`
+				);
+				if (survRes.ok) {
+					const survData = await survRes.json();
+					surveillanceData = survData.conversations || [];
+					isAdmin = true;
+				}
+			}
+		} catch (err) {
+			console.error('Failed to retrieve citizen logs:', err);
+		} finally {
+			loading = false;
+		}
+	});
 
-    async function handleUpdateCredits() {
-        if (adminActionLoading) return;
-        adminActionLoading = true;
-        try {
-            const res = await fetch('/api/admin/user', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, newCredits: credits })
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                alert(data.error);
-            }
-        } catch (e) {
-            alert("Failed to update credits.");
-        }
-        adminActionLoading = false;
-    }
+	function formatFullDate(dateStr: string) {
+		if (!dateStr) return '';
+		try {
+			const utcDateStr = dateStr.replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z');
+			const date = new Date(utcDateStr);
+			return date.toLocaleString();
+		} catch (e) {
+			return dateStr;
+		}
+	}
 
-    async function handleGrantCosmetic() {
-        if (!selectedCosmeticToGrant || adminActionLoading) return;
-        adminActionLoading = true;
-        try {
-            const res = await fetch('/api/admin/user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, action: 'GRANT_COSMETIC', cosmeticId: selectedCosmeticToGrant })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const grantedCosmetic = allCosmetics.find(c => c.id === selectedCosmeticToGrant);
-                if (grantedCosmetic) {
-                    ownedCosmetics = [...ownedCosmetics, {
-                        cosmeticId: grantedCosmetic.id,
-                        name: grantedCosmetic.name,
-                        type: grantedCosmetic.type,
-                        equipped: false
-                    }];
-                }
-                selectedCosmeticToGrant = '';
-            } else {
-                alert(data.error);
-            }
-        } catch (e) {
-            alert("Failed to grant cosmetic.");
-        }
-        adminActionLoading = false;
-    }
+	function getThreatStatus(cc: number) {
+		if (cc >= 300) return $dictionary[$locale].TRENDS_STATUS_LETHAL;
+		if (cc > 100) return $dictionary[$locale].TRENDS_STATUS_PARALYZER;
+		return $dictionary[$locale].TRENDS_STATUS_MONITOR;
+	}
 
-    async function handleRevokeCosmetic(cosmeticId: number) {
-        if (adminActionLoading) return;
-        adminActionLoading = true;
-        try {
-            const res = await fetch('/api/admin/user', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ adminId: $currentUser, targetUserId: username, action: 'REVOKE_COSMETIC', cosmeticId })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                ownedCosmetics = ownedCosmetics.filter(c => c.cosmeticId !== cosmeticId);
-            } else {
-                alert(data.error);
-            }
-        } catch (e) {
-            alert("Failed to revoke cosmetic.");
-        }
-        adminActionLoading = false;
-    }
+	async function adminAction(action: 'ERASE_DATA' | 'ERASE_ACCOUNT' | 'TOGGLE_PRIVACY') {
+		if (!confirm(`ADMIN PROTOCOL: Are you sure you want to execute ${action} on ${displayName}?`))
+			return;
+
+		try {
+			const res = await fetch('/api/admin/user', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					adminId: $currentUser,
+					targetUserId: citizenId || identifier,
+					action
+				})
+			});
+
+			const data = await res.json();
+			if (res.ok) {
+				alert(data.message);
+				if (action === 'ERASE_ACCOUNT') {
+					goto('/community');
+				} else {
+					window.location.reload();
+				}
+			} else {
+				alert(data.error);
+			}
+		} catch (e) {
+			alert('Admin action failed. Check console.');
+		}
+	}
+
+	async function handleUpdateCredits() {
+		if (adminActionLoading) return;
+		adminActionLoading = true;
+		try {
+			const res = await fetch('/api/admin/user', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					adminId: $currentUser,
+					targetUserId: citizenId || identifier,
+					newCredits: credits
+				})
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				alert(data.error);
+			}
+		} catch (e) {
+			alert('Failed to update credits.');
+		}
+		adminActionLoading = false;
+	}
+
+	async function handleGrantCosmetic() {
+		if (!selectedCosmeticToGrant || adminActionLoading) return;
+		adminActionLoading = true;
+		try {
+			const res = await fetch('/api/admin/user', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					adminId: $currentUser,
+					targetUserId: citizenId || identifier,
+					action: 'GRANT_COSMETIC',
+					cosmeticId: selectedCosmeticToGrant
+				})
+			});
+			const data = await res.json();
+			if (res.ok) {
+				const grantedCosmetic = allCosmetics.find((c) => c.id === selectedCosmeticToGrant);
+				if (grantedCosmetic) {
+					ownedCosmetics = [
+						...ownedCosmetics,
+						{
+							cosmeticId: grantedCosmetic.id,
+							name: grantedCosmetic.name,
+							type: grantedCosmetic.type,
+							equipped: false
+						}
+					];
+				}
+				selectedCosmeticToGrant = '';
+			} else {
+				alert(data.error);
+			}
+		} catch (e) {
+			alert('Failed to grant cosmetic.');
+		}
+		adminActionLoading = false;
+	}
+
+	async function handleRevokeCosmetic(cosmeticId: number) {
+		if (adminActionLoading) return;
+		adminActionLoading = true;
+		try {
+			const res = await fetch('/api/admin/user', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					adminId: $currentUser,
+					targetUserId: citizenId || identifier,
+					action: 'REVOKE_COSMETIC',
+					cosmeticId
+				})
+			});
+			const data = await res.json();
+			if (res.ok) {
+				ownedCosmetics = ownedCosmetics.filter((c) => c.cosmeticId !== cosmeticId);
+			} else {
+				alert(data.error);
+			}
+		} catch (e) {
+			alert('Failed to revoke cosmetic.');
+		}
+		adminActionLoading = false;
+	}
 </script>
 
 <svelte:head>
-    <title>
-        {unauthorized 
-            ? $dictionary[$locale].CITIZEN_RESTRICTED_TITLE 
-            : `${$dictionary[$locale].CITIZEN_PROFILE_TITLE} // ${username?.toUpperCase()}`}
-    </title>
-    <meta name="description" content="Inspect citizen psychological profiles." />
-    <meta name="robots" content="noindex, nofollow" />
+	<title>
+		{unauthorized
+			? $dictionary[$locale].CITIZEN_RESTRICTED_TITLE
+			: `${$dictionary[$locale].CITIZEN_PROFILE_TITLE} // ${displayName?.toUpperCase()}`}
+	</title>
+	<meta name="description" content="Inspect citizen psychological profiles." />
+	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <div class="profile-container" transition:fade>
-    <div class="crt-overlay"></div>
+	<div class="crt-overlay"></div>
 
-    {#if loading}
-        <div class="loading-panel card-border">
-            <div class="loader-text">{$dictionary[$locale].CITIZEN_CONNECTING}</div>
-        </div>
-    {:else if unauthorized}
-        <div class="restricted-card card-border">
-            <h1 class="header">{$dictionary[$locale].CITIZEN_RESTRICTED_TITLE}</h1>
-            <div class="security-level">{$dictionary[$locale].CITIZEN_RESTRICTED_STATUS}</div>
-            <p class="restricted-desc">{$dictionary[$locale].CITIZEN_RESTRICTED_DESC}</p>
-            <button class="return-btn" on:click={() => goto('/friends')}>
-                {$dictionary[$locale].CITIZEN_RETURN_BTN}
-            </button>
-        </div>
-    {:else}
-        <div class="main-card card-border">
-            <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin-bottom: 15px;">
-                <h1 class="header" style="border: none; padding: 0; margin: 0;">{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {username?.toUpperCase()}</h1>
-                {#if isAdmin}
-                    <div class="profile-tabs" style="display: flex; gap: 10px;">
-                        <button class="tab-btn {activeTab === 'DOSSIER' ? 'active' : ''}" on:click={() => activeTab = 'DOSSIER'}>{$dictionary[$locale].CITIZEN_TAB_DOSSIER}</button>
-                        <button class="tab-btn {activeTab === 'SURVEILLANCE' ? 'active' : ''}" on:click={() => activeTab = 'SURVEILLANCE'}>{$dictionary[$locale].CITIZEN_TAB_SURVEILLANCE}</button>
-                        <button class="tab-btn {activeTab === 'MODERATION' ? 'active' : ''}" on:click={() => activeTab = 'MODERATION'}>MODERATION</button>
-                    </div>
-                {/if}
-            </div>
+	{#if loading}
+		<div class="loading-panel card-border">
+			<div class="loader-text">{$dictionary[$locale].CITIZEN_CONNECTING}</div>
+		</div>
+	{:else if ambiguous}
+		<div class="restricted-card card-border">
+			<h1 class="header">{$dictionary[$locale].CITIZEN_AMBIGUOUS_TITLE}</h1>
+			<p class="restricted-desc">{$dictionary[$locale].CITIZEN_AMBIGUOUS_DESC}</p>
+			<button class="return-btn" on:click={() => goto('/community')}>
+				{$dictionary[$locale].CITIZEN_RETURN_BTN}
+			</button>
+		</div>
+	{:else if unauthorized}
+		<div class="restricted-card card-border">
+			<h1 class="header">{$dictionary[$locale].CITIZEN_RESTRICTED_TITLE}</h1>
+			<div class="security-level">{$dictionary[$locale].CITIZEN_RESTRICTED_STATUS}</div>
+			<p class="restricted-desc">{$dictionary[$locale].CITIZEN_RESTRICTED_DESC}</p>
+			<button class="return-btn" on:click={() => goto('/friends')}>
+				{$dictionary[$locale].CITIZEN_RETURN_BTN}
+			</button>
+		</div>
+	{:else}
+		<div class="main-card card-border">
+			<div
+				class="header-container"
+				style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin-bottom: 15px;"
+			>
+				<h1 class="header" style="border: none; padding: 0; margin: 0;">
+					{$dictionary[$locale].CITIZEN_PROFILE_TITLE} // {displayName?.toUpperCase()}
+				</h1>
+				{#if isAdmin}
+					<div class="profile-tabs" style="display: flex; gap: 10px;">
+						<button
+							class="tab-btn {activeTab === 'DOSSIER' ? 'active' : ''}"
+							on:click={() => (activeTab = 'DOSSIER')}
+							>{$dictionary[$locale].CITIZEN_TAB_DOSSIER}</button
+						>
+						<button
+							class="tab-btn {activeTab === 'SURVEILLANCE' ? 'active' : ''}"
+							on:click={() => (activeTab = 'SURVEILLANCE')}
+							>{$dictionary[$locale].CITIZEN_TAB_SURVEILLANCE}</button
+						>
+						<button
+							class="tab-btn {activeTab === 'MODERATION' ? 'active' : ''}"
+							on:click={() => (activeTab = 'MODERATION')}>MODERATION</button
+						>
+					</div>
+				{/if}
+			</div>
 
-            <div class="security-level">{$dictionary[$locale].CITIZEN_PROFILE_STATUS}</div>
+			<div class="security-level">{$dictionary[$locale].CITIZEN_PROFILE_STATUS}</div>
 
-            {#if activeTab === 'DOSSIER'}
-                <div class="subject-info">
-                <span>{$dictionary[$locale].TRENDS_SUBJECT_ID}: {username?.toUpperCase()} ({citizenId || 'SIB-UNKNOWN'})</span>
-                <span>{$dictionary[$locale].TRENDS_SYSTEM_STATUS}: {$dictionary[$locale].TRENDS_STATUS_CONNECTED}</span>
-            </div>
+			{#if activeTab === 'DOSSIER'}
+				<div class="subject-info">
+					<span
+						>{$dictionary[$locale].TRENDS_SUBJECT_ID}: {displayName?.toUpperCase()} ({citizenId ||
+							'SIB-UNKNOWN'})</span
+					>
+					<span
+						>{$dictionary[$locale].TRENDS_SYSTEM_STATUS}: {$dictionary[$locale]
+							.TRENDS_STATUS_CONNECTED}</span
+					>
+				</div>
 
-            <div class="dashboard-grid">
-                <div class="panel card-border">
-                    <h2 class="sub-header">{$dictionary[$locale].CITIZEN_LOGISTICS}</h2>
-                    <div class="avatar-section">
-                        <div class="avatar-frame">
-                            {#if avatar}
-                                <img src={avatar} alt={username} />
-                            {:else}
-                                <div class="blank-avatar"></div>
-                            {/if}
-                        </div>
-                        <div class="bio-meta">
-                            <span class="bio-label">{$dictionary[$locale].CITIZEN_SIG}</span>
-                            <span class="bio-value">{username?.toUpperCase()}</span>
-                            <span class="bio-label">{$dictionary[$locale].CITIZEN_SYS_ID}</span>
-                            <span class="bio-value">{citizenId || 'SIB-UNKNOWN'}</span>
-                        </div>
-                    </div>
-                    
-                    {#if bio}
-                        <div class="citizen-bio">
-                            <span class="bio-label">{$dictionary[$locale].CITIZEN_DOSSIER_LABEL}</span>
-                            <p class="bio-text">"{bio}"</p>
-                        </div>
-                    {/if}
+				<div class="dashboard-grid">
+					<div class="panel card-border">
+						<h2 class="sub-header">{$dictionary[$locale].CITIZEN_LOGISTICS}</h2>
+						<div class="avatar-section">
+							<div class="avatar-frame">
+								{#if avatar}
+									<img src={avatar} alt={displayName} />
+								{:else}
+									<div class="blank-avatar"></div>
+								{/if}
+							</div>
+							<div class="bio-meta">
+								<span class="bio-label">{$dictionary[$locale].CITIZEN_SIG}</span>
+								<span class="bio-value">{displayName?.toUpperCase()}</span>
+								<span class="bio-label">{$dictionary[$locale].CITIZEN_SYS_ID}</span>
+								<span class="bio-value">{citizenId || 'SIB-UNKNOWN'}</span>
+							</div>
+						</div>
 
-                    <div class="cc-readout">
-                        <span class="readout-label">{$dictionary[$locale].CITIZEN_LATEST_CC}</span>
-                        <div class="cc-number" class:stable={lastCC < 100} class:warning={lastCC >= 100 && lastCC < 300} class:lethal={lastCC >= 300}>
-                            {lastCC}
-                        </div>
-                        <span class="readout-status" class:text-stable={lastCC < 100} class:text-warning={lastCC >= 100 && lastCC < 300} class:text-lethal={lastCC >= 300}>
-                            {getThreatStatus(lastCC)}
-                        </span>
-                    </div>
-                </div>
+						{#if bio}
+							<div class="citizen-bio">
+								<span class="bio-label">{$dictionary[$locale].CITIZEN_DOSSIER_LABEL}</span>
+								<p class="bio-text">"{bio}"</p>
+							</div>
+						{/if}
 
-                <div class="panel card-border">
-                    <h2 class="sub-header">{$dictionary[$locale].TRENDS_HISTOGRAM_TITLE}</h2>
-                    <TimeGraph {history} />
-                </div>
-            </div>
+						<div class="cc-readout">
+							<span class="readout-label">{$dictionary[$locale].CITIZEN_LATEST_CC}</span>
+							<div
+								class="cc-number"
+								class:stable={lastCC < 100}
+								class:warning={lastCC >= 100 && lastCC < 300}
+								class:lethal={lastCC >= 300}
+							>
+								{lastCC}
+							</div>
+							<span
+								class="readout-status"
+								class:text-stable={lastCC < 100}
+								class:text-warning={lastCC >= 100 && lastCC < 300}
+								class:text-lethal={lastCC >= 300}
+							>
+								{getThreatStatus(lastCC)}
+							</span>
+						</div>
+					</div>
 
-            {#if history.length > 0}
-                <div class="table-panel card-border">
-                    <h2 class="sub-header">{$dictionary[$locale].TRENDS_TELEMETRY_LOGS}</h2>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>{$dictionary[$locale].TRENDS_COL_SCAN_ID}</th>
-                                    <th>{$dictionary[$locale].TRENDS_COL_SCAN_TYPE || 'METHOD'}</th>
-                                    <th>{$dictionary[$locale].TRENDS_COL_TIMESTAMP}</th>
-                                    <th>{$dictionary[$locale].TRENDS_COL_CC}</th>
-                                    <th>{$dictionary[$locale].TRENDS_COL_THREAT}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each history as item, index}
-                                    <tr class:lethal={item.cc > 300} class:warning={item.cc > 100 && item.cc <= 300}>
-                                        <td>#{history.length - index}</td>
-                                        <td>
-                                            <span class="scan-type-tag type-{item.type || 'terminal'}">
-                                                {item.type === 'biometric' ? ($dictionary[$locale].SCAN_TYPE_BIOMETRIC || 'BIOMETRIC') : ($dictionary[$locale].SCAN_TYPE_TERMINAL || 'TERMINAL')}
-                                            </span>
-                                        </td>
-                                        <td>{formatFullDate(item.created_at)}</td>
-                                        <td class="cc-cell">{item.cc}</td>
-                                        <td>{getThreatStatus(item.cc)}</td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            {/if}
-            
-            {:else if activeTab === 'SURVEILLANCE'}
-                <div class="surveillance-container" style="display: flex; gap: 20px; height: 100%;">
-                    <div class="surveillance-sidebar card-border" style="width: 250px; background: var(--bg-color, #050505); display: flex; flex-direction: column;">
-                        <h2 class="sub-header" style="margin: 15px;">{$dictionary[$locale].CITIZEN_CONTACTS}</h2>
-                        <div class="contacts-list" style="flex: 1; overflow-y: auto;">
-                            {#if surveillanceData.length === 0}
-                                <div style="padding: 15px; font-size: 0.8rem; color: #666; font-style: italic;">{$dictionary[$locale].CITIZEN_NO_COMMS}</div>
-                            {/if}
-                            {#each surveillanceData as conv}
-                                <button 
-                                    class="contact-btn {activeSurveillanceContact === conv.otherUserId ? 'active' : ''}" 
-                                    on:click={() => activeSurveillanceContact = conv.otherUserId}
-                                    style="width: 100%; text-align: left; padding: 15px; background: transparent; border: none; border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1)); color: {activeSurveillanceContact === conv.otherUserId ? '#000' : 'var(--main-color, #00ffcc)'}; background-color: {activeSurveillanceContact === conv.otherUserId ? 'var(--main-color, #00ffcc)' : 'transparent'}; cursor: pointer; font-family: inherit; font-size: 0.9rem;"
-                                >
-                                    > {conv.otherUsername.toUpperCase()}
-                                </button>
-                            {/each}
-                        </div>
-                    </div>
-                    
-                    <div class="surveillance-chat card-border" style="flex: 1; background: var(--bg-color, #050505); display: flex; flex-direction: column; position: relative;">
-                        {#if activeSurveillanceContact !== null}
-                            {@const activeConv = surveillanceData.find(c => c.otherUserId === activeSurveillanceContact)}
-                            <h2 class="sub-header" style="margin: 15px;">{$dictionary[$locale].CITIZEN_INTERCEPTED}: {username?.toUpperCase()} &lt;-&gt; {activeConv.otherUsername?.toUpperCase()}</h2>
-                            
-                            <div class="chat-history" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
-                                {#each activeConv.messages as msg}
-                                    <div style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 5px;">
-                                        <div style="font-weight: bold; color: {msg.senderId === activeSurveillanceContact ? '#ffaa00' : 'var(--main-color, #00ffcc)'};">
-                                            [{formatFullDate(msg.created_at)}] {msg.senderName.toUpperCase()}:
-                                        </div>
-                                        <div style="padding-left: 10px; color: #fff;">{msg.text}</div>
-                                    </div>
-                                {/each}
-                            </div>
-                        {:else}
-                            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--main-glow, rgba(0, 255, 204, 0.3)); letter-spacing: 2px;">
-                                {$dictionary[$locale].CITIZEN_SELECT_MONITOR}
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-            {:else if activeTab === 'MODERATION'}
-                <div class="moderation-panel">
-                    <h2 class="sys-subtitle">CITIZEN ECONOMY</h2>
-                    <div class="economy-editor" style="display: flex; align-items: center; gap: 10px; margin-bottom: 30px;">
-                        <span>BALANCE (CREDITS):</span>
-                        <input type="number" bind:value={credits} style="background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px; font-family: inherit; width: 100px;" />
-                        <button class="action-btn" on:click={handleUpdateCredits} disabled={adminActionLoading}>UPDATE BALANCE</button>
-                    </div>
+					<div class="panel card-border">
+						<h2 class="sub-header">{$dictionary[$locale].TRENDS_HISTOGRAM_TITLE}</h2>
+						<TimeGraph {history} />
+					</div>
+				</div>
 
-                    <h2 class="sys-subtitle">COSMETIC INVENTORY</h2>
-                    
-                    <div class="grant-cosmetic" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: rgba(0, 0, 0, 0.2); padding: 10px; border: 1px dashed var(--main-color, #00ffcc);">
-                        <span>GRANT ITEM:</span>
-                        <select bind:value={selectedCosmeticToGrant} style="background: var(--bg-color, #050505); color: var(--main-color, #00ffcc); border: 1px solid var(--main-color, #00ffcc); padding: 5px; font-family: inherit; flex-grow: 1;">
-                            <option value="">-- SELECT COSMETIC TO GRANT --</option>
-                            {#each allCosmetics.filter(c => !ownedCosmetics.some(oc => oc.cosmeticId === c.id)) as cosmetic}
-                                <option value={cosmetic.id}>{cosmetic.name} [{cosmetic.type.toUpperCase()}]</option>
-                            {/each}
-                        </select>
-                        <button class="action-btn" on:click={handleGrantCosmetic} disabled={adminActionLoading || !selectedCosmeticToGrant}>GRANT</button>
-                    </div>
+				{#if history.length > 0}
+					<div class="table-panel card-border">
+						<h2 class="sub-header">{$dictionary[$locale].TRENDS_TELEMETRY_LOGS}</h2>
+						<div class="table-container">
+							<table>
+								<thead>
+									<tr>
+										<th>{$dictionary[$locale].TRENDS_COL_SCAN_ID}</th>
+										<th>{$dictionary[$locale].TRENDS_COL_SCAN_TYPE || 'METHOD'}</th>
+										<th>{$dictionary[$locale].TRENDS_COL_TIMESTAMP}</th>
+										<th>{$dictionary[$locale].TRENDS_COL_CC}</th>
+										<th>{$dictionary[$locale].TRENDS_COL_THREAT}</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each history as item, index}
+										<tr
+											class:lethal={item.cc > 300}
+											class:warning={item.cc > 100 && item.cc <= 300}
+										>
+											<td>#{history.length - index}</td>
+											<td>
+												<span class="scan-type-tag type-{item.type || 'terminal'}">
+													{item.type === 'biometric'
+														? $dictionary[$locale].SCAN_TYPE_BIOMETRIC || 'BIOMETRIC'
+														: $dictionary[$locale].SCAN_TYPE_TERMINAL || 'TERMINAL'}
+												</span>
+											</td>
+											<td>{formatFullDate(item.created_at)}</td>
+											<td class="cc-cell">{item.cc}</td>
+											<td>{getThreatStatus(item.cc)}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				{/if}
+			{:else if activeTab === 'SURVEILLANCE'}
+				<div class="surveillance-container" style="display: flex; gap: 20px; height: 100%;">
+					<div
+						class="surveillance-sidebar card-border"
+						style="width: 250px; background: var(--bg-color, #050505); display: flex; flex-direction: column;"
+					>
+						<h2 class="sub-header" style="margin: 15px;">
+							{$dictionary[$locale].CITIZEN_CONTACTS}
+						</h2>
+						<div class="contacts-list" style="flex: 1; overflow-y: auto;">
+							{#if surveillanceData.length === 0}
+								<div style="padding: 15px; font-size: 0.8rem; color: #666; font-style: italic;">
+									{$dictionary[$locale].CITIZEN_NO_COMMS}
+								</div>
+							{/if}
+							{#each surveillanceData as conv}
+								<button
+									class="contact-btn {activeSurveillanceContact === conv.otherUserId
+										? 'active'
+										: ''}"
+									on:click={() => (activeSurveillanceContact = conv.otherUserId)}
+									style="width: 100%; text-align: left; padding: 15px; background: transparent; border: none; border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1)); color: {activeSurveillanceContact ===
+									conv.otherUserId
+										? '#000'
+										: 'var(--main-color, #00ffcc)'}; background-color: {activeSurveillanceContact ===
+									conv.otherUserId
+										? 'var(--main-color, #00ffcc)'
+										: 'transparent'}; cursor: pointer; font-family: inherit; font-size: 0.9rem;"
+								>
+									> {conv.otherUsername.toUpperCase()}
+								</button>
+							{/each}
+						</div>
+					</div>
 
-                    <div class="inventory-list">
-                        {#if ownedCosmetics.length === 0}
-                            <div class="sys-text">CITIZEN OWNS NO COSMETICS.</div>
-                        {:else}
-                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.3));">
-                                        <th style="padding: 10px;">ID</th>
-                                        <th style="padding: 10px;">TYPE</th>
-                                        <th style="padding: 10px;">NAME</th>
-                                        <th style="padding: 10px;">EQUIPPED</th>
-                                        <th style="padding: 10px;">ACTION</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {#each ownedCosmetics as item}
-                                        <tr style="border-bottom: 1px dashed var(--border-color, rgba(0, 255, 204, 0.1));">
-                                            <td style="padding: 10px;">{item.cosmeticId}</td>
-                                            <td style="padding: 10px;">{item.type.toUpperCase()}</td>
-                                            <td style="padding: 10px;">{item.name}</td>
-                                            <td style="padding: 10px;">{item.equipped ? 'YES' : 'NO'}</td>
-                                            <td style="padding: 10px;">
-                                                <button class="action-btn warning" on:click={() => handleRevokeCosmetic(item.cosmeticId)} disabled={adminActionLoading}>REVOKE</button>
-                                            </td>
-                                        </tr>
-                                    {/each}
-                                </tbody>
-                            </table>
-                        {/if}
-                    </div>
-                </div>
-            {/if}
+					<div
+						class="surveillance-chat card-border"
+						style="flex: 1; background: var(--bg-color, #050505); display: flex; flex-direction: column; position: relative;"
+					>
+						{#if activeSurveillanceContact !== null}
+							{@const activeConv = surveillanceData.find(
+								(c) => c.otherUserId === activeSurveillanceContact
+							)}
+							<h2 class="sub-header" style="margin: 15px;">
+								{$dictionary[$locale].CITIZEN_INTERCEPTED}: {displayName?.toUpperCase()} &lt;-&gt; {activeConv.otherUsername?.toUpperCase()}
+							</h2>
 
-            <button class="return-btn" style="margin-top: 25px;" on:click={() => goto('/friends')}>
-                {$dictionary[$locale].CITIZEN_RETURN_BTN}
-            </button>
+							<div
+								class="chat-history"
+								style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;"
+							>
+								{#each activeConv.messages as msg}
+									<div style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 5px;">
+										<div
+											style="font-weight: bold; color: {msg.senderId === activeSurveillanceContact
+												? '#ffaa00'
+												: 'var(--main-color, #00ffcc)'};"
+										>
+											[{formatFullDate(msg.created_at)}] {msg.senderName.toUpperCase()}:
+										</div>
+										<div style="padding-left: 10px; color: #fff;">{msg.text}</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<div
+								style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--main-glow, rgba(0, 255, 204, 0.3)); letter-spacing: 2px;"
+							>
+								{$dictionary[$locale].CITIZEN_SELECT_MONITOR}
+							</div>
+						{/if}
+					</div>
+				</div>
+			{:else if activeTab === 'MODERATION'}
+				<div class="moderation-panel">
+					<h2 class="sys-subtitle">CITIZEN ECONOMY</h2>
+					<div
+						class="economy-editor"
+						style="display: flex; align-items: center; gap: 10px; margin-bottom: 30px;"
+					>
+						<span>BALANCE (CREDITS):</span>
+						<input
+							type="number"
+							bind:value={credits}
+							style="background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px; font-family: inherit; width: 100px;"
+						/>
+						<button class="action-btn" on:click={handleUpdateCredits} disabled={adminActionLoading}
+							>UPDATE BALANCE</button
+						>
+					</div>
 
-            {#if $currentUser === $page.data.adminAccountId}
-                <div class="admin-controls card-border" style="margin-top: 25px;">
-                    <h2 class="sub-header" style="color: #ff3333; border-bottom-color: #ff3333;">{$dictionary[$locale].CITIZEN_ADMIN_OVERRIDE}</h2>
-                    <div class="admin-buttons" style="display: flex; gap: 15px;">
-                        <button class="admin-btn erase-data" on:click={() => adminAction('ERASE_DATA')}>{$dictionary[$locale].CITIZEN_ADMIN_ERASE_DATA}</button>
-                        <button class="admin-btn toggle-privacy" on:click={() => adminAction('TOGGLE_PRIVACY')}>{$dictionary[$locale].CITIZEN_ADMIN_TOGGLE_PRIV}</button>
-                        <button class="admin-btn erase-account" on:click={() => adminAction('ERASE_ACCOUNT')}>{$dictionary[$locale].CITIZEN_ADMIN_ERASE_ACC}</button>
-                    </div>
-                </div>
-            {/if}
-        </div>
-    {/if}
+					<h2 class="sys-subtitle">COSMETIC INVENTORY</h2>
+
+					<div
+						class="grant-cosmetic"
+						style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background: rgba(0, 0, 0, 0.2); padding: 10px; border: 1px dashed var(--main-color, #00ffcc);"
+					>
+						<span>GRANT ITEM:</span>
+						<select
+							bind:value={selectedCosmeticToGrant}
+							style="background: var(--bg-color, #050505); color: var(--main-color, #00ffcc); border: 1px solid var(--main-color, #00ffcc); padding: 5px; font-family: inherit; flex-grow: 1;"
+						>
+							<option value="">-- SELECT COSMETIC TO GRANT --</option>
+							{#each allCosmetics.filter((c) => !ownedCosmetics.some((oc) => oc.cosmeticId === c.id)) as cosmetic}
+								<option value={cosmetic.id}>{cosmetic.name} [{cosmetic.type.toUpperCase()}]</option>
+							{/each}
+						</select>
+						<button
+							class="action-btn"
+							on:click={handleGrantCosmetic}
+							disabled={adminActionLoading || !selectedCosmeticToGrant}>GRANT</button
+						>
+					</div>
+
+					<div class="inventory-list">
+						{#if ownedCosmetics.length === 0}
+							<div class="sys-text">CITIZEN OWNS NO COSMETICS.</div>
+						{:else}
+							<table
+								style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;"
+							>
+								<thead>
+									<tr style="border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.3));">
+										<th style="padding: 10px;">ID</th>
+										<th style="padding: 10px;">TYPE</th>
+										<th style="padding: 10px;">NAME</th>
+										<th style="padding: 10px;">EQUIPPED</th>
+										<th style="padding: 10px;">ACTION</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each ownedCosmetics as item}
+										<tr
+											style="border-bottom: 1px dashed var(--border-color, rgba(0, 255, 204, 0.1));"
+										>
+											<td style="padding: 10px;">{item.cosmeticId}</td>
+											<td style="padding: 10px;">{item.type.toUpperCase()}</td>
+											<td style="padding: 10px;">{item.name}</td>
+											<td style="padding: 10px;">{item.equipped ? 'YES' : 'NO'}</td>
+											<td style="padding: 10px;">
+												<button
+													class="action-btn warning"
+													on:click={() => handleRevokeCosmetic(item.cosmeticId)}
+													disabled={adminActionLoading}>REVOKE</button
+												>
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			<button class="return-btn" style="margin-top: 25px;" on:click={() => goto('/friends')}>
+				{$dictionary[$locale].CITIZEN_RETURN_BTN}
+			</button>
+
+			{#if $currentUser === $page.data.adminAccountId}
+				<div class="admin-controls card-border" style="margin-top: 25px;">
+					<h2 class="sub-header" style="color: #ff3333; border-bottom-color: #ff3333;">
+						{$dictionary[$locale].CITIZEN_ADMIN_OVERRIDE}
+					</h2>
+					<div class="admin-buttons" style="display: flex; gap: 15px;">
+						<button class="admin-btn erase-data" on:click={() => adminAction('ERASE_DATA')}
+							>{$dictionary[$locale].CITIZEN_ADMIN_ERASE_DATA}</button
+						>
+						<button class="admin-btn toggle-privacy" on:click={() => adminAction('TOGGLE_PRIVACY')}
+							>{$dictionary[$locale].CITIZEN_ADMIN_TOGGLE_PRIV}</button
+						>
+						<button class="admin-btn erase-account" on:click={() => adminAction('ERASE_ACCOUNT')}
+							>{$dictionary[$locale].CITIZEN_ADMIN_ERASE_ACC}</button
+						>
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
-    .profile-container { position: absolute; inset: 0; background: var(--bg-color, #050505); display: flex; align-items: center; justify-content: center; font-family: 'Courier New', Courier, monospace; color: var(--main-color, #00ffcc); padding: 20px; overflow: hidden; }
-    .loading-panel { padding: 40px; background: var(--bg-color, #050505); border: 1px solid var(--main-color, #00ffcc); text-align: center; }
-    .loader-text { font-size: 0.95rem; font-weight: bold; letter-spacing: 2px; }
-    
-    .restricted-card { background: var(--bg-color, #050505); padding: 40px; width: 100%; max-width: 500px; display: flex; flex-direction: column; text-align: center; }
-    .restricted-desc { font-size: 0.9rem; line-height: 1.6; margin-bottom: 30px; color: rgba(255, 255, 255, 0.85); }
-    
-    .main-card { background: var(--bg-color, #050505); padding: 30px; width: 100%; max-width: 1100px; height: 100%; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; }
-    .card-border { border: 1px solid var(--main-color, #00ffcc); box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1)); }
-    .header { font-size: 1.1rem; border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding-bottom: 15px; margin: 0 0 15px 0; letter-spacing: 2px; font-weight: bold; }
-    .security-level { font-size: 0.75rem; color: #ff3333; letter-spacing: 1px; margin-bottom: 15px; text-shadow: 0 0 5px rgba(255, 51, 84, 0.3); }
-    .security-level.text-stable { color: var(--main-color, #00ffcc); text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3)); }
+	.profile-container {
+		position: absolute;
+		inset: 0;
+		background: var(--bg-color, #050505);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: 'Courier New', Courier, monospace;
+		color: var(--main-color, #00ffcc);
+		padding: 20px;
+		overflow: hidden;
+	}
+	.loading-panel {
+		padding: 40px;
+		background: var(--bg-color, #050505);
+		border: 1px solid var(--main-color, #00ffcc);
+		text-align: center;
+	}
+	.loader-text {
+		font-size: 0.95rem;
+		font-weight: bold;
+		letter-spacing: 2px;
+	}
 
-    .subject-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 25px; color: var(--main-glow, rgba(0, 255, 204, 0.75)); }
+	.restricted-card {
+		background: var(--bg-color, #050505);
+		padding: 40px;
+		width: 100%;
+		max-width: 500px;
+		display: flex;
+		flex-direction: column;
+		text-align: center;
+	}
+	.restricted-desc {
+		font-size: 0.9rem;
+		line-height: 1.6;
+		margin-bottom: 30px;
+		color: rgba(255, 255, 255, 0.85);
+	}
 
-    .dashboard-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 25px; margin-bottom: 25px; }
-    .panel { background: var(--bg-color, #050505); padding: 20px; display: flex; flex-direction: column; }
-    .sub-header { font-size: 0.85rem; letter-spacing: 1px; font-weight: bold; margin: 0 0 20px 0; color: var(--main-color, #00ffcc); border-bottom: 1px dashed var(--border-color, rgba(0, 255, 204, 0.15)); padding-bottom: 5px; }
+	.main-card {
+		background: var(--bg-color, #050505);
+		padding: 30px;
+		width: 100%;
+		max-width: 1100px;
+		height: 100%;
+		max-height: 85vh;
+		display: flex;
+		flex-direction: column;
+		box-sizing: border-box;
+		overflow-y: auto;
+	}
+	.card-border {
+		border: 1px solid var(--main-color, #00ffcc);
+		box-shadow: 0 0 20px var(--border-color, rgba(0, 255, 204, 0.1));
+	}
+	.header {
+		font-size: 1.1rem;
+		border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
+		padding-bottom: 15px;
+		margin: 0 0 15px 0;
+		letter-spacing: 2px;
+		font-weight: bold;
+	}
+	.security-level {
+		font-size: 0.75rem;
+		color: #ff3333;
+		letter-spacing: 1px;
+		margin-bottom: 15px;
+		text-shadow: 0 0 5px rgba(255, 51, 84, 0.3);
+	}
+	.security-level.text-stable {
+		color: var(--main-color, #00ffcc);
+		text-shadow: 0 0 5px var(--main-glow, rgba(0, 255, 204, 0.3));
+	}
 
-    .avatar-section { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; }
-    .avatar-frame { width: 90px; height: 90px; border: 1px solid var(--main-color, #00ffcc); background: #111; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
-    .blank-avatar { width: 100%; height: 100%; background: var(--main-color, #00ffcc); opacity: 0.25; }
+	.subject-info {
+		display: flex;
+		justify-content: space-between;
+		font-size: 0.85rem;
+		margin-bottom: 25px;
+		color: var(--main-glow, rgba(0, 255, 204, 0.75));
+	}
 
-    .bio-meta { display: flex; flex-direction: column; gap: 4px; }
-    .bio-label { font-size: 0.7rem; color: var(--main-glow, rgba(0, 255, 204, 0.7)); letter-spacing: 1px; }
-    .bio-value { font-size: 0.9rem; font-weight: bold; color: #fff; margin-bottom: 8px; }
+	.dashboard-grid {
+		display: grid;
+		grid-template-columns: 1fr 1.5fr;
+		gap: 25px;
+		margin-bottom: 25px;
+	}
+	.panel {
+		background: var(--bg-color, #050505);
+		padding: 20px;
+		display: flex;
+		flex-direction: column;
+	}
+	.sub-header {
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		font-weight: bold;
+		margin: 0 0 20px 0;
+		color: var(--main-color, #00ffcc);
+		border-bottom: 1px dashed var(--border-color, rgba(0, 255, 204, 0.15));
+		padding-bottom: 5px;
+	}
 
-    .cc-readout { border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding: 15px; text-align: center; background: var(--border-color, rgba(0, 255, 204, 0.02)); }
-    .readout-label { font-size: 0.75rem; letter-spacing: 1px; color: var(--main-glow, rgba(0, 255, 204, 0.8)); }
-    .cc-number { font-size: 3rem; font-weight: bold; margin: 10px 0; font-family: 'Courier New', monospace; text-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.5)); }
-    .cc-number.stable { color: var(--main-color, #00ffcc); text-shadow: 0 0 10px var(--main-color, #00ffcc); }
-    .cc-number.warning { color: #ffaa00; text-shadow: 0 0 10px #ffaa00; }
-    .cc-number.lethal { color: #ff3333; text-shadow: 0 0 15px #ff3333; animation: blink-text 1s infinite alternate; }
-    .readout-status { font-size: 1rem; font-weight: bold; letter-spacing: 2px; }
+	.avatar-section {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		margin-bottom: 25px;
+	}
+	.avatar-frame {
+		width: 90px;
+		height: 90px;
+		border: 1px solid var(--main-color, #00ffcc);
+		background: #111;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+	.avatar-frame img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.blank-avatar {
+		width: 100%;
+		height: 100%;
+		background: var(--main-color, #00ffcc);
+		opacity: 0.25;
+	}
 
-    .empty-state { font-size: 0.8rem; opacity: 0.6; padding: 40px 0; text-align: center; }
-    .svg-container { padding: 10px 0; }
-    .graph { width: 100%; border-bottom: 1px solid var(--main-color, #00ffcc); border-left: 1px solid var(--main-color, #00ffcc); background: linear-gradient(var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px), linear-gradient(90deg, var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px); background-size: 30px 30px; }
-    .dot { cursor: pointer; }
-    
-    .table-panel { background: var(--bg-color, #050505); padding: 20px; display: flex; flex-direction: column; margin-bottom: 25px; }
-    .table-container { width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { font-size: 0.8rem; color: var(--main-color, #00ffcc); border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3)); padding: 10px; font-weight: bold; letter-spacing: 1px; }
-    td { padding: 10px; font-size: 0.8rem; border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1)); color: #fff; }
-    
-    tr.warning td { color: #ffaa00; }
-    tr.lethal td { color: #ff3333; }
-    
-    .cc-cell { font-family: monospace; font-weight: bold; }
-    .scan-type-tag { font-size: 0.7rem; padding: 2px 6px; border: 1px solid; font-family: monospace; }
-    .scan-type-tag.type-biometric { border-color: var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); }
-    .scan-type-tag.type-terminal { border-color: #ffaa00; color: #ffaa00; }
+	.bio-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.bio-label {
+		font-size: 0.7rem;
+		color: var(--main-glow, rgba(0, 255, 204, 0.7));
+		letter-spacing: 1px;
+	}
+	.bio-value {
+		font-size: 0.9rem;
+		font-weight: bold;
+		color: #fff;
+		margin-bottom: 8px;
+	}
 
-    .return-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 12px; cursor: pointer; font-family: inherit; font-size: 0.95rem; letter-spacing: 2px; transition: all 0.2s; margin-top: auto; }
-    .return-btn:hover { background: var(--main-color, #00ffcc); color: #000; box-shadow: 0 0 15px var(--main-color, #00ffcc); }
-    
-    .text-stable { color: var(--main-color, #00ffcc); }
-    .text-warning { color: #ffaa00; }
-    .text-lethal { color: #ff3333; }
+	.cc-readout {
+		border: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
+		padding: 15px;
+		text-align: center;
+		background: var(--border-color, rgba(0, 255, 204, 0.02));
+	}
+	.readout-label {
+		font-size: 0.75rem;
+		letter-spacing: 1px;
+		color: var(--main-glow, rgba(0, 255, 204, 0.8));
+	}
+	.cc-number {
+		font-size: 3rem;
+		font-weight: bold;
+		margin: 10px 0;
+		font-family: 'Courier New', monospace;
+		text-shadow: 0 0 10px var(--main-glow, rgba(0, 255, 204, 0.5));
+	}
+	.cc-number.stable {
+		color: var(--main-color, #00ffcc);
+		text-shadow: 0 0 10px var(--main-color, #00ffcc);
+	}
+	.cc-number.warning {
+		color: #ffaa00;
+		text-shadow: 0 0 10px #ffaa00;
+	}
+	.cc-number.lethal {
+		color: #ff3333;
+		text-shadow: 0 0 15px #ff3333;
+		animation: blink-text 1s infinite alternate;
+	}
+	.readout-status {
+		font-size: 1rem;
+		font-weight: bold;
+		letter-spacing: 2px;
+	}
 
-    .crt-overlay { position: absolute; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 2px; pointer-events: none; z-index: 10; }
+	.empty-state {
+		font-size: 0.8rem;
+		opacity: 0.6;
+		padding: 40px 0;
+		text-align: center;
+	}
+	.svg-container {
+		padding: 10px 0;
+	}
+	.graph {
+		width: 100%;
+		border-bottom: 1px solid var(--main-color, #00ffcc);
+		border-left: 1px solid var(--main-color, #00ffcc);
+		background:
+			linear-gradient(var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px),
+			linear-gradient(90deg, var(--border-color, rgba(0, 255, 204, 0.02)) 1px, transparent 1px);
+		background-size: 30px 30px;
+	}
+	.dot {
+		cursor: pointer;
+	}
 
-    @keyframes blink-text {
-        from { text-shadow: 0 0 15px #ff3333; }
-        to { text-shadow: 0 0 3px #ff3333; }
-    }
+	.table-panel {
+		background: var(--bg-color, #050505);
+		padding: 20px;
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 25px;
+	}
+	.table-container {
+		width: 100%;
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		text-align: left;
+	}
+	th {
+		font-size: 0.8rem;
+		color: var(--main-color, #00ffcc);
+		border-bottom: 1px solid var(--main-glow, rgba(0, 255, 204, 0.3));
+		padding: 10px;
+		font-weight: bold;
+		letter-spacing: 1px;
+	}
+	td {
+		padding: 10px;
+		font-size: 0.8rem;
+		border-bottom: 1px solid var(--border-color, rgba(0, 255, 204, 0.1));
+		color: #fff;
+	}
 
-    @media (max-width: 900px) {
-        .dashboard-grid { grid-template-columns: 1fr; }
-        .profile-container { padding: 15px 15px 65px 15px; align-items: flex-start; }
-        .main-card { padding: 15px; height: 100%; max-height: 100%; }
-        .avatar-section { flex-direction: column; align-items: flex-start; }
-    }
+	tr.warning td {
+		color: #ffaa00;
+	}
+	tr.lethal td {
+		color: #ff3333;
+	}
 
-    .admin-controls { padding: 20px; background: rgba(255, 51, 51, 0.05); border-color: #ff3333; }
-    .admin-btn { padding: 10px; font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; border: 1px solid; flex: 1; }
-    .erase-data { border-color: #ffaa00; color: #ffaa00; background: transparent; }
-    .erase-data:hover { background: #ffaa00; color: #000; box-shadow: 0 0 10px #ffaa00; }
-    .erase-account { border-color: #ff3333; color: #ff3333; background: transparent; }
-    .erase-account:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
-    
-    .tab-btn { background: transparent; border: 1px solid var(--main-color, #00ffcc); color: var(--main-color, #00ffcc); padding: 5px 15px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
-    .tab-btn:hover { background: var(--border-color, rgba(0, 255, 204, 0.1)); box-shadow: 0 0 10px var(--main-color, #00ffcc); }
-    .tab-btn.active { background: var(--main-color, #00ffcc); color: #000; }
+	.cc-cell {
+		font-family: monospace;
+		font-weight: bold;
+	}
+	.scan-type-tag {
+		font-size: 0.7rem;
+		padding: 2px 6px;
+		border: 1px solid;
+		font-family: monospace;
+	}
+	.scan-type-tag.type-biometric {
+		border-color: var(--main-color, #00ffcc);
+		color: var(--main-color, #00ffcc);
+	}
+	.scan-type-tag.type-terminal {
+		border-color: #ffaa00;
+		color: #ffaa00;
+	}
+
+	.return-btn {
+		background: transparent;
+		border: 1px solid var(--main-color, #00ffcc);
+		color: var(--main-color, #00ffcc);
+		padding: 12px;
+		cursor: pointer;
+		font-family: inherit;
+		font-size: 0.95rem;
+		letter-spacing: 2px;
+		transition: all 0.2s;
+		margin-top: auto;
+	}
+	.return-btn:hover {
+		background: var(--main-color, #00ffcc);
+		color: #000;
+		box-shadow: 0 0 15px var(--main-color, #00ffcc);
+	}
+
+	.text-stable {
+		color: var(--main-color, #00ffcc);
+	}
+	.text-warning {
+		color: #ffaa00;
+	}
+	.text-lethal {
+		color: #ff3333;
+	}
+
+	.crt-overlay {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+		background-size: 100% 2px;
+		pointer-events: none;
+		z-index: 10;
+	}
+
+	@keyframes blink-text {
+		from {
+			text-shadow: 0 0 15px #ff3333;
+		}
+		to {
+			text-shadow: 0 0 3px #ff3333;
+		}
+	}
+
+	@media (max-width: 900px) {
+		.dashboard-grid {
+			grid-template-columns: 1fr;
+		}
+		.profile-container {
+			padding: 15px 15px 65px 15px;
+			align-items: flex-start;
+		}
+		.main-card {
+			padding: 15px;
+			height: 100%;
+			max-height: 100%;
+		}
+		.avatar-section {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+	}
+
+	.admin-controls {
+		padding: 20px;
+		background: rgba(255, 51, 51, 0.05);
+		border-color: #ff3333;
+	}
+	.admin-btn {
+		padding: 10px;
+		font-family: monospace;
+		font-size: 0.8rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		border: 1px solid;
+		flex: 1;
+	}
+	.erase-data {
+		border-color: #ffaa00;
+		color: #ffaa00;
+		background: transparent;
+	}
+	.erase-data:hover {
+		background: #ffaa00;
+		color: #000;
+		box-shadow: 0 0 10px #ffaa00;
+	}
+	.erase-account {
+		border-color: #ff3333;
+		color: #ff3333;
+		background: transparent;
+	}
+	.erase-account:hover {
+		background: #ff3333;
+		color: #000;
+		box-shadow: 0 0 10px #ff3333;
+	}
+
+	.tab-btn {
+		background: transparent;
+		border: 1px solid var(--main-color, #00ffcc);
+		color: var(--main-color, #00ffcc);
+		padding: 5px 15px;
+		cursor: pointer;
+		font-family: inherit;
+		font-size: 0.85rem;
+		font-weight: bold;
+		transition: all 0.2s;
+	}
+	.tab-btn:hover {
+		background: var(--border-color, rgba(0, 255, 204, 0.1));
+		box-shadow: 0 0 10px var(--main-color, #00ffcc);
+	}
+	.tab-btn.active {
+		background: var(--main-color, #00ffcc);
+		color: #000;
+	}
 </style>

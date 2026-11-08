@@ -1,114 +1,115 @@
 import { redirect, error } from '@sveltejs/kit';
-import * as env_static from '$env/static/private';
-import * as env_public from '$env/static/public';
+import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import { db } from '$lib/server/db';
+import { getAuthUser } from '$lib/server/auth';
 
 export async function GET({ url, cookies }) {
-    const code = url.searchParams.get('code');
-    const sessionId = cookies.get('session');
-    
-    if (!sessionId) {
-        throw error(401, 'Unauthorized');
-    }
-    
-    if (!code) {
-        throw error(400, 'Missing authorization code');
-    }
+	const code = url.searchParams.get('code');
+	const state = url.searchParams.get('state');
+	const expectedState = cookies.get('discord_oauth_state');
 
-    const userId = parseInt(sessionId);
-    const clientId = env_static.DISCORD_CLIENT_ID;
-    const clientSecret = env_static.DISCORD_CLIENT_SECRET;
-    
-    const origin = env_public.PUBLIC_ORIGIN || url.origin;
-    const redirectUri = `${origin}/auth/callback/discord`;
+	cookies.delete('discord_oauth_state', { path: '/' });
 
-    let discordUsername = '';
-    let discordId = '';
+	const user = getAuthUser(cookies.get('session'));
+	if (!user) {
+		throw error(401, 'Unauthorized');
+	}
 
-    /** If real credentials are set and we're not using the mock authorization code */
-    if (clientId && clientSecret && code !== 'mock_code_1234') {
-        try {
-            /** 1. Exchange authorization code for access token */
-            const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    client_id: clientId,
-                    client_secret: clientSecret,
-                    grant_type: 'authorization_code',
-                    code,
-                    redirect_uri: redirectUri
-                }).toString()
-            });
+	if (!code) {
+		throw error(400, 'Missing authorization code');
+	}
 
-            if (!tokenResponse.ok) {
-                const errData = await tokenResponse.json();
-                console.error('Discord token exchange failed:', errData);
-                throw error(500, 'Failed to authenticate with Discord API');
-            }
+	if (!state || !expectedState || state !== expectedState) {
+		throw redirect(302, '/account?discord=error');
+	}
 
-            const tokenData = await tokenResponse.json();
-            const accessToken = tokenData.access_token;
+	const userId = user.id;
+	const clientId = env.DISCORD_CLIENT_ID;
+	const clientSecret = env.DISCORD_CLIENT_SECRET;
 
-            /** 2. Fetch user profile details */
-            const userResponse = await fetch('https://discord.com/api/users/@me', {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
+	const origin = publicEnv.PUBLIC_ORIGIN || url.origin;
+	const redirectUri = `${origin}/auth/callback/discord`;
 
-            if (!userResponse.ok) {
-                throw error(500, 'Failed to fetch Discord user profile');
-            }
+	let discordUsername = '';
+	let discordId = '';
 
-            const userData = await userResponse.json();
-            discordId = userData.id;
-            
-            /** Format username (supporting discriminator fallback) */
-            discordUsername = userData.discriminator && userData.discriminator !== '0'
-                ? `${userData.username}#${userData.discriminator}`
-                : userData.username;
+	const mockAllowed = !clientId && !clientSecret && process.env.NODE_ENV !== 'production';
 
-        } catch (err: any) {
-            console.error('Discord OAuth callback failed:', err);
-            throw redirect(302, '/account?discord=error');
-        }
-    } else {
-        /** Mock authorization callback details */
-        discordUsername = 'SibylCitizen#2026';
-        discordId = '49204859012384920';
-    }
+	if (clientId && clientSecret) {
+		try {
+			/** 1. Exchange authorization code for access token */
+			const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({
+					client_id: clientId,
+					client_secret: clientSecret,
+					grant_type: 'authorization_code',
+					code,
+					redirect_uri: redirectUri
+				}).toString()
+			});
 
-    /** Check if the discordId is already linked to another account */
-    const existingLink = db.prepare('SELECT username, role FROM users WHERE discord_id = ? AND id != ?')
-                           .get(discordId, userId) as { username: string, role: string } | undefined;
+			if (!tokenResponse.ok) {
+				const errData = await tokenResponse.json().catch(() => null);
+				console.error('Discord token exchange failed:', errData);
+				throw redirect(302, '/account?discord=error');
+			}
 
-    if (existingLink) {
-        const currentUserRow = db.prepare('SELECT username, role FROM users WHERE id = ?')
-                                 .get(userId) as { username: string, role: string } | undefined;
+			const tokenData = await tokenResponse.json();
+			const accessToken = tokenData.access_token;
 
-        const isBypass = currentUserRow && (
-            (currentUserRow.username === 'Kiliotsu' && existingLink.role === 'ADMIN') ||
-            (currentUserRow.role === 'ADMIN' && existingLink.username === 'Kiliotsu') ||
-            (currentUserRow.username === 'Kiliotsu' && existingLink.username === 'Kiliotsu')
-        );
+			/** 2. Fetch user profile details */
+			const userResponse = await fetch('https://discord.com/api/users/@me', {
+				headers: { Authorization: `Bearer ${accessToken}` }
+			});
 
-        if (!isBypass) {
-            throw redirect(302, '/account?discord=already_linked');
-        }
-    }
+			if (!userResponse.ok) {
+				throw redirect(302, '/account?discord=error');
+			}
 
-    try {
-        /** 3. Save Discord credentials and reward 50 credits if first time */
-        db.prepare(`
+			const userData = await userResponse.json();
+			discordId = userData.id;
+
+			discordUsername =
+				userData.discriminator && userData.discriminator !== '0'
+					? `${userData.username}#${userData.discriminator}`
+					: userData.username;
+		} catch (err: any) {
+			console.error('Discord OAuth callback failed:', err);
+			throw redirect(302, '/account?discord=error');
+		}
+	} else if (mockAllowed && code === 'mock_code_1234') {
+		discordUsername = 'SibylCitizen#2026';
+		discordId = '49204859012384920';
+	} else {
+		throw redirect(302, '/account?discord=error');
+	}
+
+	/** A Discord account can only be linked to one citizen. */
+	const existingLink = db
+		.prepare('SELECT username FROM users WHERE discord_id = ? AND id != ?')
+		.get(discordId, userId) as { username: string } | undefined;
+
+	if (existingLink) {
+		throw redirect(302, '/account?discord=already_linked');
+	}
+
+	try {
+		db.prepare(
+			`
             UPDATE users 
             SET credits = CASE WHEN discord_id IS NULL THEN credits + 50 ELSE credits END,
                 discord_username = ?, 
                 discord_id = ? 
             WHERE id = ?
-        `).run(discordUsername, discordId, userId);
-    } catch (dbErr) {
-        console.error('Failed to link Discord credentials in SQLite database:', dbErr);
-        throw redirect(302, '/account?discord=error');
-    }
+        `
+		).run(discordUsername, discordId, userId);
+	} catch (dbErr) {
+		console.error('Failed to link Discord credentials in SQLite database:', dbErr);
+		throw redirect(302, '/account?discord=error');
+	}
 
-    throw redirect(302, '/account?discord=success');
+	throw redirect(302, '/account?discord=success');
 }

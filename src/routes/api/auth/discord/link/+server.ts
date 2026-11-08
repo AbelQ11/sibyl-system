@@ -1,18 +1,30 @@
+import crypto from 'crypto';
 import { redirect } from '@sveltejs/kit';
-import * as env_static from '$env/static/private';
-import * as env_public from '$env/static/public';
+import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 
-export async function GET({ url }) {
-    const clientId = env_static.DISCORD_CLIENT_ID;
-    const origin = env_public.PUBLIC_ORIGIN || url.origin;
-    const redirectUri = `${origin}/auth/callback/discord`;
-    
+export async function GET({ url, cookies }) {
+	const clientId = env.DISCORD_CLIENT_ID;
+	const origin = publicEnv.PUBLIC_ORIGIN || url.origin;
+	const redirectUri = `${origin}/auth/callback/discord`;
 
-    if (!clientId) {
-        throw redirect(302, `/auth/mock-discord?redirect_uri=${encodeURIComponent(redirectUri)}`);
-    }
+	const state = crypto.randomBytes(24).toString('hex');
+	cookies.set('discord_oauth_state', state, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: process.env.NODE_ENV === 'production',
+		maxAge: 10 * 60
+	});
 
-    const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify`;
-    
-    throw redirect(302, oauthUrl);
+	if (!clientId) {
+		throw redirect(
+			302,
+			`/auth/mock-discord?redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+		);
+	}
+
+	const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify&state=${state}`;
+
+	throw redirect(302, oauthUrl);
 }

@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"mail:test": "node scripts/send-mail-test.mjs"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
@@ -23,6 +24,7 @@
 		"@types/bcryptjs": "^2.4.6",
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^24",
+		"@types/nodemailer": "^8.0.2",
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",
@@ -39,6 +41,10 @@
 		"bcryptjs": "^3.0.3",
 		"better-sqlite3": "^12.10.0",
 		"dotenv": "^17.4.2",
+		"nodemailer": "^10.4.0",
 		"zod": "^4.4.3"
+	},
+	"allowScripts": {
+		"better-sqlite3@12.11.1": true
 	}
 }

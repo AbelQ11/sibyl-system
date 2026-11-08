@@ -1,11 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { AI_API_KEY } from '$env/static/private';
+import { getAuthUser } from '$lib/server/auth';
+import { queryAI } from '$lib/server/aiFallbackEngine';
+import { consumeRateLimit, rateLimitResponse } from '$lib/server/rateLimit';
 
-export async function POST({ request }) {
-    try {
-        const { userMessage } = await request.json();
-
-        const systemPrompt = `
+const SYSTEM_PROMPT = `
             You are the core analytical node of the SIBYL SYSTEM.
             When a citizen describes their emotional or mental state, you must provide highly precise, actionable mental regulation strategies.
             
@@ -16,25 +14,32 @@ export async function POST({ request }) {
             4. Maintain a cold, sharp, highly precise diagnostic tone.
             5. Don't try to send the message with markdown included.
             6. You MUST answer with the same language that the user used to send the message.
-            7. If the user wants to kill people or already did, tell him to call the police.
-            8. If the user wants to kill himself, tell him to call an acquaintance that could help them or specialists that are available at any moment.
+            7. If the user wants to kill people or already did, tell them to call the police.
+            8. If the user wants to kill himself, tell them to call an acquaintance that could help them or specialists that are available at any moment.
             `;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${AI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\nUser says: " + userMessage }] }]
-            })
-        });
+export async function POST({ request, cookies }) {
+	const user = getAuthUser(cookies.get('session'));
+	if (!user) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
 
-        const data = await response.json();
-        const aiText = data.candidates[0].content.parts[0].text;
+	const limit = consumeRateLimit(`ai-chat:${user.id}`, 10, 60_000);
+	if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
-        return json({ reply: aiText });
+	try {
+		const body = await request.json().catch(() => null);
+		const userMessage = typeof body?.userMessage === 'string' ? body.userMessage.trim() : '';
 
-    } catch (error) {
-        console.error("AI Communication Error:", error);
-        return json({ reply: "SYSTEM ERROR: CONNECTION TO MAIN CORE LOST." }, { status: 500 });
-    }
+		if (!userMessage || userMessage.length > 2000) {
+			return json({ error: 'Message must be between 1 and 2000 characters' }, { status: 400 });
+		}
+
+		const aiText = await queryAI(`${SYSTEM_PROMPT}\n\nUser says: ${userMessage}`, 'empathy');
+
+		return json({ reply: aiText });
+	} catch (error) {
+		console.error('AI Communication Error:', error);
+		return json({ reply: 'SYSTEM ERROR: CONNECTION TO MAIN CORE LOST.' }, { status: 500 });
+	}
 }

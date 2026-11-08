@@ -26,7 +26,7 @@ The companion bot runs as a separate Node process using `discord.js`.
 - **Cross-Platform Sync**: The website and Discord bot communicate via standard internal REST endpoints, mirroring public and group messages bidirectionally.
 
 ### 5. Security & Privacy Context
-- **Authentication**: Passwords are encrypted using `bcryptjs`. Session management relies on transient HTTP cookies (no persistence headers), ensuring session destruction upon browser closure.
+- **Authentication**: Passwords are hashed with `bcryptjs` (cost 12 for new credentials). Sign-in uses a username or email. Duplicate usernames are resolved by checking the supplied password against every account with that username; a password collision falls back to email. Sessions are opaque 256-bit tokens stored in SQLite and delivered in `httpOnly`, `SameSite=Lax` cookies (30-day lifetime); password changes revoke all sessions.
 - **Role-Based Access Control (RBAC)**: Specific user IDs (e.g., `SIB-00000000`) are granted hardcoded admin flags, allowing them to bypass SQL privacy clauses (e.g., overriding `WHERE privacy = 'PUBLIC'` filters in directory searches).
 - **Auto-Admin Networking**: During user registration (`/api/auth`), the server automatically injects a friend request entry (`ACCEPTED` status) linking the new user and the `ADMIN` account. This bridges immediate comms and bypasses standard `PENDING` states.
 

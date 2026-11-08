@@ -34,10 +34,36 @@ import { migration as m017 } from './db/migrations/017_promo_usage';
 import { migration as m018 } from './db/migrations/018_posts_table';
 import { migration as m019 } from './db/migrations/019_post_interactions';
 import { migration as m020 } from './db/migrations/020_post_images';
+import { migration as m021 } from './db/migrations/021_usernames_email';
+import { migration as m022 } from './db/migrations/022_query_indexes';
+import { migration as m023 } from './db/migrations/023_chat_moderation_flag';
+import { migration as m024 } from './db/migrations/024_group_requests_cascade';
 
 runMigrations([
-    m001, m002, m003, m004, m005, m006, m007, m008,
-    m009, m010, m011, m012, m013, m014, m015, m016, m017, m018, m019, m020
+	m001,
+	m002,
+	m003,
+	m004,
+	m005,
+	m006,
+	m007,
+	m008,
+	m009,
+	m010,
+	m011,
+	m012,
+	m013,
+	m014,
+	m015,
+	m016,
+	m017,
+	m018,
+	m019,
+	m020,
+	m021,
+	m022,
+	m023,
+	m024
 ]);
 
 runDevSeeds();

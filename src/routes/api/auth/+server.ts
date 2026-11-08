@@ -1,84 +1,151 @@
-import { db } from "$lib/server/db";
-import { createSession, deleteSession, getCookieOptions } from '$lib/server/session';
-import { generateCitizenId } from '$lib/server/auth';
-import bcrypt from 'bcryptjs';
 import { json } from '@sveltejs/kit';
+import bcrypt from 'bcryptjs';
+import { db } from '$lib/server/db';
+import {
+	authenticateUser,
+	findUserByEmail,
+	generateCitizenId,
+	isReservedUsername,
+	normalizeEmail
+} from '$lib/server/auth';
+import { createSession, deleteSession, getCookieOptions } from '$lib/server/session';
+import {
+	clientIp,
+	consumeRateLimit,
+	rateLimitResponse,
+	resetRateLimit
+} from '$lib/server/rateLimit';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validUsername(value: unknown): value is string {
+	if (typeof value !== 'string') return false;
+	const trimmed = value.trim();
+	return trimmed.length >= 1 && trimmed.length <= 15 && !/[\u0000-\u001f\u007f]/.test(trimmed);
+}
+
+function validPassword(value: unknown): value is string {
+	return (
+		typeof value === 'string' &&
+		value.length >= 8 &&
+		value.length <= 30 &&
+		/[A-Z]/.test(value) &&
+		/[a-z]/.test(value) &&
+		/[0-9]/.test(value)
+	);
+}
 
 /**
  * Handles authentication requests including user registration, login, and logout.
- *
- * @param {Object} event - The SvelteKit request event.
- * @param {Request} event.request - The incoming HTTP request containing the action and credentials.
- * @param {import('@sveltejs/kit').Cookies} event.cookies - The cookies object for session management.
- * @returns {Promise<Response>} JSON response indicating success or failure of the requested action.
  */
 export async function POST({ request, cookies }) {
-    const { action, username, password } = await request.json();
+	let body: Record<string, unknown>;
+	try {
+		body = await request.json();
+	} catch {
+		return json({ success: false, code: 'INVALID' }, { status: 400 });
+	}
 
-    if (action === 'REGISTER') {
-        if (!username || username.length < 1 || username.length > 15) {
-            return json({ success: false, code: 'AUTH_ERR_USERNAME_LENGTH' });
-        }
+	const action = body.action;
+	const username = typeof body.username === 'string' ? body.username.trim() : '';
+	const password = typeof body.password === 'string' ? body.password : '';
+	const email = normalizeEmail(body.email);
 
-        const isLengthValid = password && password.length >= 8 && password.length <= 30;
-        const hasUpper = /[A-Z]/.test(password);
-        const hasLower = /[a-z]/.test(password);
-        const hasDigit = /[0-9]/.test(password);
+	if (action === 'REGISTER') {
+		const ipLimit = consumeRateLimit(`register:ip:${clientIp(request)}`, 5, 15 * 60_000);
+		if (!ipLimit.allowed) return rateLimitResponse(ipLimit.retryAfterSeconds);
 
-        if (!isLengthValid || !hasUpper || !hasLower || !hasDigit) {
-            return json({ success: false, code: 'AUTH_ERR_PASSWORD_STRENGTH' });
-        }
+		if (!validUsername(username)) {
+			return json({ success: false, code: 'AUTH_ERR_USERNAME_LENGTH' });
+		}
+		if (!validPassword(password)) {
+			return json({ success: false, code: 'AUTH_ERR_PASSWORD_STRENGTH' });
+		}
+		if (email !== null && !EMAIL_RE.test(email)) {
+			return json({ success: false, code: 'AUTH_ERR_EMAIL_INVALID' });
+		}
+		if (isReservedUsername(username)) {
+			return json({ success: false, code: 'AUTH_ERR_USERNAME_RESERVED' });
+		}
+		if (email && findUserByEmail(email)) {
+			return json({ success: false, code: 'AUTH_ERR_EMAIL_TAKEN' });
+		}
 
-        try {
-            const hash = await bcrypt.hash(password, 10);
-            const citizenId = generateCitizenId();
+		try {
+			const hash = await bcrypt.hash(password, 12);
+			const citizenId = generateCitizenId();
 
-            const stmt = db.prepare('INSERT INTO users (username, password, citizen_id) VALUES (?, ?, ?)');
-            const result = stmt.run(username, hash, citizenId);
+			const result = db
+				.prepare('INSERT INTO users (username, password, citizen_id, email) VALUES (?, ?, ?, ?)')
+				.run(username, hash, citizenId, email);
 
-            const newUserId = Number(result.lastInsertRowid);
+			const newUserId = Number(result.lastInsertRowid);
 
-            try {
-                const admin = db.prepare("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1").get() as { id: number } | undefined;
-                if (admin) {
-                    db.prepare("INSERT INTO friend_requests (senderId, receiverId, status) VALUES (?, ?, 'ACCEPTED')").run(admin.id, newUserId);
-                }
-            } catch (err) {
-                console.error("Failed to auto-add admin as friend:", err);
-            }
+			try {
+				const admin = db.prepare("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1").get() as
+					{ id: number } | undefined;
+				if (admin) {
+					db.prepare(
+						"INSERT INTO friend_requests (senderId, receiverId, status) VALUES (?, ?, 'ACCEPTED')"
+					).run(admin.id, newUserId);
+				}
+			} catch (err) {
+				console.error('Failed to auto-add admin as friend:', err);
+			}
 
-            const token = createSession(newUserId);
-            cookies.set('session', token, getCookieOptions());
-            return json({ success: true, code: 'REG_OK', user: username });
-        } catch (e) {
-            return json({ success: false, code: 'REG_ERR' });
-        }
-    }
+			const token = createSession(newUserId);
+			cookies.set('session', token, getCookieOptions());
+			return json({ success: true, code: 'REG_OK', user: username, citizen_id: citizenId });
+		} catch (e: any) {
+			if (typeof e?.message === 'string' && e.message.includes('idx_users_email')) {
+				return json({ success: false, code: 'AUTH_ERR_EMAIL_TAKEN' });
+			}
+			console.error('Registration failed:', e);
+			return json({ success: false, code: 'REG_ERR' });
+		}
+	}
 
-    if (action === 'LOGIN') {
-        const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-        const user = stmt.get(username) as { id: number; username: string; password: string; avatar: string | null } | undefined;
+	if (action === 'LOGIN') {
+		const identifier = (typeof body.identifier === 'string' ? body.identifier : username).trim();
 
-        if (user && await bcrypt.compare(password, user.password)) {
-            const token = createSession(user.id);
-            cookies.set('session', token, getCookieOptions());
+		const ipLimit = consumeRateLimit(`login:ip:${clientIp(request)}`, 20, 15 * 60_000);
+		if (!ipLimit.allowed) return rateLimitResponse(ipLimit.retryAfterSeconds);
 
-            return json({
-                success: true,
-                code: 'AUTH_OK',
-                user: user.username,
-                avatar: user.avatar || null
-            });
-        }
-        return json({ success: false, code: 'AUTH_ERR' });
-    }
+		const idLimit = consumeRateLimit(`login:id:${identifier.toLowerCase()}`, 10, 15 * 60_000);
+		if (!idLimit.allowed) return rateLimitResponse(idLimit.retryAfterSeconds);
 
-    if (action === 'LOGOUT') {
-        const token = cookies.get('session');
-        if (token) deleteSession(token);
-        cookies.delete('session', { path: '/' });
-        return json({ success: true });
-    }
+		const result = await authenticateUser(identifier, password);
 
-    return json({ success: false, code: 'INVALID' }, { status: 400 });
+		if (result.code === 'OK') {
+			resetRateLimit(`login:id:${identifier.toLowerCase()}`);
+			const token = createSession(result.user.id);
+			cookies.set('session', token, getCookieOptions());
+			return json({
+				success: true,
+				code: 'AUTH_OK',
+				user: result.user.username,
+				citizen_id: result.user.citizen_id,
+				avatar: result.user.avatar || null
+			});
+		}
+
+		if (result.code === 'AMBIGUOUS') {
+			return json({
+				success: false,
+				code: 'AUTH_ERR_AMBIGUOUS',
+				message: 'Several citizens share this username. Please sign in with your email.'
+			});
+		}
+
+		return json({ success: false, code: 'AUTH_ERR' });
+	}
+
+	if (action === 'LOGOUT') {
+		const token = cookies.get('session');
+		if (token) deleteSession(token);
+		cookies.delete('session', { path: '/' });
+		return json({ success: true });
+	}
+
+	return json({ success: false, code: 'INVALID' }, { status: 400 });
 }

@@ -26,5 +26,16 @@ vite.config.ts.timestamp-*
 
 # Databases
 static/citizen.db
+citizen.db
+citizen.db-shm
+citizen.db-wal
+dev.db
+backups/
 *.sqlite
 *.sqlite3
+
+# IDE / local machine
+.idea/
+.vscode/
+*.bak
+*.log

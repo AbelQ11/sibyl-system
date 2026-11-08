@@ -12,23 +12,24 @@ import type { RequestHandler } from './$types';
  * @returns JSON response containing up to 200 formatted chat messages.
  */
 export const GET: RequestHandler = async ({ cookies, url }) => {
-    const user = getAuthUser(cookies.get('session')) as any;
-    if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
+	const user = getAuthUser(cookies.get('session')) as any;
+	if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
-    const beforeParam = url.searchParams.get('before');
-    const limitParam = url.searchParams.get('limit');
-    
-    const beforeId = beforeParam ? parseInt(beforeParam, 10) : null;
-    const fetchLimit = limitParam ? Math.min(Math.max(parseInt(limitParam, 10) || 200, 1), 500) : 200;
+	const beforeParam = url.searchParams.get('before');
+	const limitParam = url.searchParams.get('limit');
 
-    try {
-        let params: any[] = [];
-        const baseQuery = `
+	const beforeId = beforeParam ? parseInt(beforeParam, 10) : null;
+	const fetchLimit = limitParam ? Math.min(Math.max(parseInt(limitParam, 10) || 200, 1), 500) : 200;
+
+	try {
+		let params: any[] = [];
+		const baseQuery = `
             SELECT m.*, 
                    u.username as senderName, 
+                   u.citizen_id as senderCitizenId,
                    u.avatar as senderAvatar, 
                    u.role as senderRole,
-                   (SELECT cc FROM userStats WHERE userId = u.id ORDER BY created_at DESC LIMIT 1) as senderCC,
+                   (SELECT cc FROM userStats WHERE userId = u.id ORDER BY id DESC LIMIT 1) as senderCC,
                    g.name as groupName,
                    (SELECT cg.name FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupName,
                    (SELECT cg.id FROM chat_group_members cgm JOIN chat_groups cg ON cgm.groupId = cg.id WHERE cgm.userId = u.id LIMIT 1) as senderGroupId,
@@ -36,6 +37,7 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
                    (SELECT c.value FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = u.id AND c.type = 'name_effect' AND uc.equipped = 1 LIMIT 1) as senderNameEffect,
                    parent.text as parentText,
                    parent_u.username as parentSenderName,
+                   parent_u.citizen_id as parentCitizenId,
                    (SELECT AVG(cc) FROM userStats WHERE userId = parent_u.id) as parentAvgCC
             FROM chat_messages m
             JOIN users u ON m.senderId = u.id
@@ -44,88 +46,97 @@ export const GET: RequestHandler = async ({ cookies, url }) => {
             LEFT JOIN users parent_u ON parent.senderId = parent_u.id
         `;
 
-        let whereClause = ``;
-        if (user.role !== 'ADMIN') {
-            whereClause = `
+		let whereClause = ``;
+		if (user.role !== 'ADMIN') {
+			whereClause = `
                 WHERE ((m.groupId IS NULL AND m.receiverId IS NULL) 
                    OR m.receiverId = ? 
                    OR m.senderId = ?
                    OR m.groupId IN (SELECT groupId FROM chat_group_members WHERE userId = ?))
             `;
-            params.push(user.id, user.id, user.id);
-        }
+			params.push(user.id, user.id, user.id);
+		}
 
-        if (beforeId && !isNaN(beforeId)) {
-            if (whereClause) {
-                whereClause += ` AND m.id < ?`;
-            } else {
-                whereClause = ` WHERE m.id < ?`;
-            }
-            params.push(beforeId);
-        }
+		if (beforeId && !isNaN(beforeId)) {
+			if (whereClause) {
+				whereClause += ` AND m.id < ?`;
+			} else {
+				whereClause = ` WHERE m.id < ?`;
+			}
+			params.push(beforeId);
+		}
 
-        params.push(fetchLimit + 1);
+		params.push(fetchLimit + 1);
 
-        const fullQuery = `${baseQuery} ${whereClause} ORDER BY m.created_at DESC, m.id DESC LIMIT ?`;
-        const rawMessages = db.prepare(fullQuery).all(...params) as any[];
+		const fullQuery = `${baseQuery} ${whereClause} ORDER BY m.created_at DESC, m.id DESC LIMIT ?`;
+		const rawMessages = db.prepare(fullQuery).all(...params) as any[];
 
-        let hasMore = false;
-        if (rawMessages.length > fetchLimit) {
-            hasMore = true;
-            rawMessages.pop();
-        }
+		let hasMore = false;
+		if (rawMessages.length > fetchLimit) {
+			hasMore = true;
+			rawMessages.pop();
+		}
 
-        rawMessages.reverse();
+		rawMessages.reverse();
 
-        const messageIds = rawMessages.map(m => m.id);
-        let reactionsByMessage: Record<number, any[]> = {};
-        if (messageIds.length > 0) {
-            const placeholders = messageIds.map(() => '?').join(',');
-            const allReactionRows = db.prepare(`SELECT messageId, emoji, userId FROM chat_message_reactions WHERE messageId IN (${placeholders})`).all(...messageIds) as any[];
-            for (const r of allReactionRows) {
-                if (!reactionsByMessage[r.messageId]) reactionsByMessage[r.messageId] = [];
-                reactionsByMessage[r.messageId].push({ emoji: r.emoji, userId: r.userId });
-            }
-        }
+		const messageIds = rawMessages.map((m) => m.id);
+		let reactionsByMessage: Record<number, any[]> = {};
+		if (messageIds.length > 0) {
+			const placeholders = messageIds.map(() => '?').join(',');
+			const allReactionRows = db
+				.prepare(
+					`SELECT messageId, emoji, userId FROM chat_message_reactions WHERE messageId IN (${placeholders})`
+				)
+				.all(...messageIds) as any[];
+			for (const r of allReactionRows) {
+				if (!reactionsByMessage[r.messageId]) reactionsByMessage[r.messageId] = [];
+				reactionsByMessage[r.messageId].push({ emoji: r.emoji, userId: r.userId });
+			}
+		}
 
-        const formattedMessages = rawMessages.map(m => {
-            let replyToMessage = null;
-            if (m.replyToId && m.parentText) {
-                replyToMessage = {
-                    text: m.parentText,
-                    senderName: m.parentSenderName,
-                    senderAvgCC: Math.round(m.parentAvgCC || 0)
-                };
-            }
+		const formattedMessages = rawMessages.map((m) => {
+			let replyToMessage = null;
+			if (m.replyToId && m.parentText) {
+				replyToMessage = {
+					text: m.parentText,
+					senderName: m.parentSenderName,
+					senderCitizenId: m.parentCitizenId,
+					senderAvgCC: Math.round(m.parentAvgCC || 0)
+				};
+			}
 
-            return {
-                id: m.id,
-                senderId: m.senderId,
-                senderName: m.senderRole === 'ADMIN' ? 'XXXXXXXXXX' : m.senderName,
-                senderAvatar: m.senderAvatar,
-                senderAvatarBorder: m.senderAvatarBorder,
-                senderNameEffect: m.senderNameEffect,
-                senderCC: m.senderCC || 0,
-                senderRole: m.senderRole,
-                receiverId: m.receiverId,
-                groupId: m.groupId,
-                groupName: m.groupName,
-                senderGroupName: m.senderGroupName,
-                senderGroupId: m.senderGroupId,
-                text: m.text,
-                isReadOnce: Boolean(m.isReadOnce),
-                replyToId: m.replyToId,
-                replyToMessage,
-                attachment: m.attachment,
-                reactions: reactionsByMessage[m.id] || [],
-                created_at: m.created_at.includes('T') ? m.created_at : m.created_at.replace(' ', 'T') + 'Z'
-            };
-        });
+			const locked = Boolean(m.isReadOnce) && m.senderId !== user.id;
 
-        return json({ messages: formattedMessages, hasMore });
+			return {
+				id: m.id,
+				senderId: m.senderId,
+				senderName: m.senderRole === 'ADMIN' ? 'XXXXXXXXXX' : m.senderName,
+				senderCitizenId: m.senderCitizenId,
+				senderAvatar: m.senderAvatar,
+				senderAvatarBorder: m.senderAvatarBorder,
+				senderNameEffect: m.senderNameEffect,
+				senderCC: m.senderCC || 0,
+				senderRole: m.senderRole,
+				receiverId: m.receiverId,
+				groupId: m.groupId,
+				groupName: m.groupName,
+				senderGroupName: m.senderGroupName,
+				senderGroupId: m.senderGroupId,
+				text: locked ? '' : m.text,
+				locked,
+				isReadOnce: Boolean(m.isReadOnce),
+				is_censored: Boolean(m.is_censored),
+				replyToId: m.replyToId,
+				replyToMessage,
+				attachment: locked ? null : m.attachment,
+				reactions: reactionsByMessage[m.id] || [],
+				created_at: m.created_at.includes('T') ? m.created_at : m.created_at.replace(' ', 'T') + 'Z'
+			};
+		});
 
-    } catch (e: any) {
-        console.error("Error fetching messages:", e);
-        return json({ error: e.message || 'Server error' }, { status: 500 });
-    }
+		return json({ messages: formattedMessages, hasMore });
+	} catch (e: any) {
+		console.error('Error fetching messages:', e);
+		return json({ error: e.message || 'Server error' }, { status: 500 });
+	}
 };

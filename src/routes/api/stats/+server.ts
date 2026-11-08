@@ -1,98 +1,145 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { getSession } from '$lib/server/session';
+import { resolvePublicUser } from '$lib/server/auth';
 
 export async function GET({ url, cookies }) {
-    const session = getSession(cookies.get('session'));
-    if (!session) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const loggedInId = session.userId;
-    const userId = url.searchParams.get('userId');
+	const session = getSession(cookies.get('session'));
+	if (!session) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+	const loggedInId = session.userId;
+	const identifier = url.searchParams.get('userId') || url.searchParams.get('identifier');
 
-    if (!userId) {
-        return json({ error: 'Missing citizen identifier context' }, { status: 400 });
-    }
+	if (!identifier) {
+		return json({ error: 'Missing citizen identifier context' }, { status: 400 });
+	}
 
-    try {
-        const userRow = db.prepare('SELECT id, username, avatar, privacy, citizen_id, bio, credits FROM users WHERE username = ? OR id = ?').get(userId, userId) as { id: number, username: string, avatar: string | null, privacy: string, citizen_id: string | null, bio: string | null, credits: number } | undefined;
+	try {
+		const resolution = resolvePublicUser(identifier);
 
-        if (!userRow) {
-            return json({
-                first_cc: 0,
-                last_cc: 0,
-                avatar: null,
-                citizen_id: null,
-                bio: null,
-                credits: 0,
-                history: []
-            });
-        }
+		if (resolution.ambiguous) {
+			return json(
+				{
+					error: 'AMBIGUOUS_IDENTIFIER',
+					message: 'Several citizens share this username. Use the Citizen ID (SIB-XXXXXXXX).',
+					matches: resolution.matches
+				},
+				{ status: 409 }
+			);
+		}
 
+		const matched = resolution.user;
+		if (!matched) {
+			return json({
+				first_cc: 0,
+				last_cc: 0,
+				avatar: null,
+				citizen_id: null,
+				bio: null,
+				credits: 0,
+				history: []
+			});
+		}
 
-        const requester = db.prepare('SELECT role FROM users WHERE id = ?').get(loggedInId) as { role: string } | undefined;
-        const isAdmin = requester?.role === 'ADMIN';
+		const userRow = db
+			.prepare(
+				'SELECT id, username, avatar, privacy, citizen_id, bio, credits FROM users WHERE id = ?'
+			)
+			.get(matched.id) as
+			| {
+					id: number;
+					username: string;
+					avatar: string | null;
+					privacy: string;
+					citizen_id: string | null;
+					bio: string | null;
+					credits: number;
+			  }
+			| undefined;
 
-        if (userRow.id !== loggedInId && !isAdmin) {
-            const targetPrivacy = userRow.privacy || 'PRIVATE';
-            if (targetPrivacy === 'PRIVATE') {
-                return json({ error: 'Access Denied: Private Profile' }, { status: 403 });
-            }
+		if (!userRow) {
+			return json({ error: 'Citizen not found' }, { status: 404 });
+		}
 
-            if (targetPrivacy !== 'PUBLIC') {
-                const isFriend = db.prepare(`
+		const requester = db.prepare('SELECT role FROM users WHERE id = ?').get(loggedInId) as
+			{ role: string } | undefined;
+		const isAdmin = requester?.role === 'ADMIN';
+
+		if (userRow.id !== loggedInId && !isAdmin) {
+			const targetPrivacy = userRow.privacy || 'PRIVATE';
+			if (targetPrivacy === 'PRIVATE') {
+				return json({ error: 'Access Denied: Private Profile' }, { status: 403 });
+			}
+
+			if (targetPrivacy !== 'PUBLIC') {
+				const isFriend = db
+					.prepare(
+						`
                     SELECT id FROM friend_requests
                     WHERE status = 'ACCEPTED' AND (
                         (senderId = ? AND receiverId = ?) OR (senderId = ? AND receiverId = ?)
                     )
-                `).get(loggedInId, userRow.id, userRow.id, loggedInId);
+                `
+					)
+					.get(loggedInId, userRow.id, userRow.id, loggedInId);
 
-                const sharesGroup = db.prepare(`
+				const sharesGroup = db
+					.prepare(
+						`
                     SELECT 1 FROM chat_group_members c1
                     JOIN chat_group_members c2 ON c1.groupId = c2.groupId
                     WHERE c1.userId = ? AND c2.userId = ?
-                `).get(loggedInId, userRow.id);
+                `
+					)
+					.get(loggedInId, userRow.id);
 
-                let allowed = false;
+				let allowed = false;
 
-                if (targetPrivacy === 'FRIENDS' && isFriend) allowed = true;
-                if (targetPrivacy === 'GROUP ONLY' && sharesGroup) allowed = true;
-                if (targetPrivacy === 'FRIENDS AND GROUP ONLY' && (isFriend || sharesGroup)) allowed = true;
+				if (targetPrivacy === 'FRIENDS' && isFriend) allowed = true;
+				if (targetPrivacy === 'GROUP ONLY' && sharesGroup) allowed = true;
+				if (targetPrivacy === 'FRIENDS AND GROUP ONLY' && (isFriend || sharesGroup)) allowed = true;
 
-                if (!allowed) {
-                    return json({ error: 'Access Denied: Privacy requirements not met' }, { status: 403 });
-                }
-            }
-        }
+				if (!allowed) {
+					return json({ error: 'Access Denied: Privacy requirements not met' }, { status: 403 });
+				}
+			}
+		}
 
-        const stats = db.prepare('SELECT cc, type, created_at FROM userStats WHERE userId = ? ORDER BY id ASC').all(userRow.id) as { cc: number, type: string, created_at: string }[];
+		const stats = db
+			.prepare('SELECT cc, type, created_at FROM userStats WHERE userId = ? ORDER BY id ASC')
+			.all(userRow.id) as { cc: number; type: string; created_at: string }[];
 
-        const first_cc = stats.length > 0 ? stats[0].cc : 0;
-        const last_cc = stats.length > 0 ? stats[stats.length - 1].cc : 0;
+		const first_cc = stats.length > 0 ? stats[0].cc : 0;
+		const last_cc = stats.length > 0 ? stats[stats.length - 1].cc : 0;
 
-        let adminData: any = {};
-        if (isAdmin) {
-            const allCosmetics = db.prepare('SELECT id, name, type FROM cosmetics').all();
-            const ownedCosmetics = db.prepare('SELECT uc.cosmeticId, c.name, c.type, uc.equipped FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = ?').all(userRow.id);
-            adminData = {
-                allCosmetics,
-                ownedCosmetics
-            };
-        }
+		let adminData: any = {};
+		if (isAdmin) {
+			const allCosmetics = db.prepare('SELECT id, name, type FROM cosmetics').all();
+			const ownedCosmetics = db
+				.prepare(
+					'SELECT uc.cosmeticId, c.name, c.type, uc.equipped FROM user_cosmetics uc JOIN cosmetics c ON uc.cosmeticId = c.id WHERE uc.userId = ?'
+				)
+				.all(userRow.id);
+			adminData = {
+				allCosmetics,
+				ownedCosmetics
+			};
+		}
 
-        return json({
-            first_cc,
-            last_cc,
-            avatar: userRow.avatar,
-            citizen_id: userRow.citizen_id,
-            bio: userRow.bio,
-            credits: userRow.credits,
-            history: stats,
-            ...adminData
-        });
-
-    } catch (err: any) {
-        console.error('Database query block failure:', err.message);
-        return json({ error: 'Failed to extract citizen record telemetry log' }, { status: 500 });
-    }
+		return json({
+			first_cc,
+			last_cc,
+			avatar: userRow.avatar,
+			citizen_id: userRow.citizen_id,
+			bio: userRow.bio,
+			credits: isAdmin || userRow.id === loggedInId ? userRow.credits : 0,
+			username: userRow.username,
+			history: stats,
+			...adminData
+		});
+	} catch (err: any) {
+		console.error('Database query block failure:', err?.message);
+		return json({ error: 'Failed to extract citizen record telemetry log' }, { status: 500 });
+	}
 }

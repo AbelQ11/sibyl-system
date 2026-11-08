@@ -141,7 +141,7 @@ graph TD
 
 ### 1. Database Layer (`src/lib/server/db.ts`)
 Creates and initializes `citizen.db` automatically in the workspace root. It manages:
-* **`users`**: Stores credentials (`id`, `username` (1-15 chars), `password` hashed, `avatar` profile image data, `citizen_id` unique pass reference, `privacy` settings, `discord_username`, `discord_id`, and SIBYL account `role`).
+* **`users`**: Stores credentials (`id`, `username` (1-15 chars, **not unique**), `email` (optional, unique when set), `password` hashed, `avatar` profile image data, `citizen_id` unique pass reference, `privacy` settings, `discord_username`, `discord_id`, and SIBYL account `role`). The Citizen ID is the canonical public identifier; usernames are display names.
 * **`userStats`**: Tracks psychological history entries. Each record maps a citizen (`userId`) to a specific `cc` score, logged with a `created_at` timestamp. This enables storing multiple daily values to generate historical trends and calculate **average Crime Coefficient** metrics.
 * **`friend_requests`**: Stores compliance synchronization link requests between citizens (`senderId`, `receiverId`, `status` (`PENDING`/`ACCEPTED`/`REJECTED`), and timestamp).
 
@@ -166,7 +166,14 @@ Creates and initializes `citizen.db` automatically in the workspace root. It man
 
 ---
 
+## Identity, Sign-in & Email
+
+* **Usernames are display names** and may be shared by several citizens. Public profile links use the unique **Citizen ID (`SIB-XXXXXXXX`)**.
+* **Sign-in** accepts a username or an email. For a shared username, the server checks the password against every account with that username and signs into the single matching account. If two accounts share both username and password, the user is asked to sign in with their email.
+* **Email** is optional, normalized to lowercase, and unique. It can be added or changed from the Account page and is used for email sign-in. SMTP delivery is configured through `SMTP_HOST`/`SMTP_URL`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM`.
+* **Mail test**: `npm run mail:test [recipient]` sends a verification message from `MAIL_FROM`.
+
 ## Session Security & Privacy Settings
 * **Biometric Privacy**: The camera feed is visually masked via CSS (`width: 1px`, `height: 1px`, `opacity: 0`) to respect user privacy.
-* **HTTP Session Lifetimes**: User cookies utilize standard session headers containing no expiration attributes, meaning authentication variables are immediately cleared from browser RAM once the tab or browser session terminates.
+* **Sessions**: Opaque random session tokens are stored in the database and delivered in `httpOnly`, `SameSite=Lax` cookies with a 30-day lifetime. Password changes invalidate all existing sessions.
 * **Discord Sync Constraints**: A Discord account can only be linked to 1 citizen profile at a time.
