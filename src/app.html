@@ -6,10 +6,60 @@
 		<meta name="text-scale" content="scale" />
 
 		<link rel="icon" href="%sveltekit.assets%/favicon.png?v=3" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/favicon.png" />
+		<link rel="manifest" href="%sveltekit.assets%/site.webmanifest" />
+		<meta name="theme-color" content="#00ffcc" />
+		<meta name="author" content="Abel Quéré" />
 
-		<meta name="google-site-verification" content="yuBUg861a-BNoU_n4g861nDTEl4NOh0TU-BbwZK6g1k" />
-		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-		<script defer src="https://cloud.umami.is/script.js" data-website-id="a2f65d15-7314-49f6-8afd-c67a89ae9416"></script>
+		<meta name="google-site-verification" content="9fB6Ypqr2mNHRWzxg3n9ij7b5Hqw23X-LEJY1NOskX4" />
+		<meta
+			name="robots"
+			content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+		/>
+		<script
+			defer
+			src="https://cloud.umami.is/script.js"
+			data-website-id="a2f65d15-7314-49f6-8afd-c67a89ae9416"
+		></script>
+
+		<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@graph": [
+				{
+					"@type": "WebSite",
+					"@id": "https://sibyl-system.kiliotsu.eu/#website",
+					"url": "https://sibyl-system.kiliotsu.eu/",
+					"name": "Sibyl System",
+					"description": "Psycho-Pass inspired biometric diagnostic terminal: crime coefficient scans, cognitive telemetry and a citizen network.",
+					"inLanguage": ["en", "fr"],
+					"publisher": { "@id": "https://sibyl-system.kiliotsu.eu/#organization" }
+				},
+				{
+					"@type": "Organization",
+					"@id": "https://sibyl-system.kiliotsu.eu/#organization",
+					"name": "Sibyl System",
+					"url": "https://sibyl-system.kiliotsu.eu/",
+					"logo": {
+						"@type": "ImageObject",
+						"url": "https://sibyl-system.kiliotsu.eu/favicon.png"
+					},
+					"sameAs": ["https://github.com/AbelQ11/sibyl-system"]
+				},
+				{
+					"@type": "WebApplication",
+					"@id": "https://sibyl-system.kiliotsu.eu/#app",
+					"name": "Sibyl System",
+					"url": "https://sibyl-system.kiliotsu.eu/",
+					"applicationCategory": "GameApplication",
+					"operatingSystem": "Any",
+					"description": "Biometric scanner, crime coefficient analysis and cognitive telemetry in a Psycho-Pass inspired terminal.",
+					"isPartOf": { "@id": "https://sibyl-system.kiliotsu.eu/#website" },
+					"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+				}
+			]
+		}
+		</script>
 
 		%sveltekit.head%
 	</head>

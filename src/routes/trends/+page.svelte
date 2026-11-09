@@ -44,16 +44,23 @@
 
 <svelte:head>
     <title>{$dictionary[$locale].SEO_TRENDS_TITLE}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="canonical" href="https://sibyl-system.kiliotsu.eu/trends" />
     <meta name="description" content={$dictionary[$locale].SEO_TRENDS_DESC} />
     <meta property="og:title" content={$dictionary[$locale].SEO_TRENDS_TITLE} />
     <meta property="og:description" content={$dictionary[$locale].SEO_TRENDS_DESC} />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://sibyl-system.mooo.com/trends" />
-    <meta property="og:image" content="https://sibyl-system.mooo.com/favicon.png" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:site_name" content="Sibyl System" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://sibyl-system.kiliotsu.eu/trends" />
+    <meta property="og:image" content="https://sibyl-system.kiliotsu.eu/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={$dictionary[$locale].SEO_TRENDS_TITLE} />
     <meta name="twitter:description" content={$dictionary[$locale].SEO_TRENDS_DESC} />
-    <meta name="twitter:image" content="https://sibyl-system.mooo.com/favicon.png" />
+    <meta name="twitter:image" content="https://sibyl-system.kiliotsu.eu/og-image.jpg" />
+    <meta name="twitter:image:alt" content="Sibyl System — biometric terminal" />
 </svelte:head>
 
 <div class="trends-container" transition:fade>

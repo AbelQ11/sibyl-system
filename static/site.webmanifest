@@ -1,0 +1,19 @@
+{
+  "name": "Sibyl System",
+  "short_name": "Sibyl",
+  "description": "Psycho-Pass inspired biometric diagnostic terminal: crime coefficient scans, cognitive telemetry and a citizen network.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#00ffcc",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

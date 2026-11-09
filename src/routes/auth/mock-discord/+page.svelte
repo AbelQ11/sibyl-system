@@ -55,7 +55,7 @@
 			<div class="avatar-stub">S</div>
 			<div class="app-details">
 				<span class="app-name">SIBYL SYSTEM NODE</span>
-				<span class="app-url">sibyl-system.mooo.com</span>
+				<span class="app-url">sibyl-system.kiliotsu.eu</span>
 			</div>
 		</div>
 
